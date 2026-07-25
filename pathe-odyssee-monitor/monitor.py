@@ -102,8 +102,17 @@ def load_config(path: Path) -> dict[str, Any]:
                 f"  cp {EXAMPLE_CONFIG.name} {path.name}"
             )
         raise SystemExit(f"Missing config file: {path}")
-    with path.open(encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
+    try:
+        with path.open(encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+    except yaml.YAMLError as e:
+        raise SystemExit(
+            f"Invalid YAML in {path}:\n{e}\n\n"
+            "Common fix on Android/Termux: quote Telegram values, e.g.\n"
+            '  bot_token: "123456:ABC..."\n'
+            '  chat_id: "108457361"\n'
+            "Also check indentation (use spaces, not tabs)."
+        ) from e
     # Env overrides for secrets
     alerts = cfg.setdefault("alerts", {})
     tg = alerts.setdefault("telegram", {})
