@@ -916,13 +916,19 @@ def once_and_print(cfg: dict[str, Any]) -> int:
 
 def loop(cfg: dict[str, Any]) -> int:
     session = build_session()
-    interval = max(60, int(cfg.get("interval_seconds", 60)))
+    interval = max(30, int(cfg.get("interval_seconds", 60)))
     min_free = int(cfg.get("min_free_seats", 1))
     cooldown = int(cfg.get("alert_cooldown_seconds", 300))
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
     last_alert_at = 0.0
 
     tz = get_timezone(cfg.get("timezone"))
+    if interval < 60:
+        LOG.warning(
+            "Polling every %ss is aggressive — higher chance of Pathé/Akamai 403. "
+            "Prefer 60s; use 30s only for short tests.",
+            interval,
+        )
     LOG.info(
         "Watching %s @ %s %s %s (every %ss, mode=%s)",
         cfg["film_slug"],

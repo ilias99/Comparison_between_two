@@ -13,7 +13,7 @@ required_version: ""          # e.g. "vost" or "vf"
 required_tags_any: []         # e.g. ["imax"] — match if any tag is present
 required_tags_all: []         # e.g. ["imax"] — match only if all tags are present
 
-# Poll every N seconds (keep >= 60 to stay polite with Pathé)
+# Poll every N seconds (min 30; 60 is safer long-term, 30 = short aggressive test)
 interval_seconds: 60
 
 # Minimum free seats before alerting
