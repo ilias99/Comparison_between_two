@@ -1,0 +1,49 @@
+# Copy to config.yaml and edit if needed.
+
+film_slug: l-odyssee-projection-imax-70mm-54413
+cinema_slug: cinema-pathe-odysseum
+# Date and local French time of the screening
+date: "2026-08-05"
+time: "21:00"
+timezone: Europe/Paris
+
+# Optional filters (case-insensitive). Leave empty to match any.
+# Useful if several 21:00 shows exist (VF vs VOST, IMAX tags, etc.)
+required_version: ""          # e.g. "vost" or "vf"
+required_tags_any: []         # e.g. ["imax"] — match if any tag is present
+required_tags_all: []         # e.g. ["imax"] — match only if all tags are present
+
+# Poll every N seconds (please keep >= 60 to be polite)
+interval_seconds: 120
+
+# Minimum free seats before alerting
+min_free_seats: 1
+
+# How to check availability:
+# - auto: use showtimes status, then open booking page for a seat count when possible
+# - showtimes: only Pathé showtimes API (session-level status)
+# - seats: always open the booking page and count free seats (Playwright)
+check_mode: auto
+
+# Browser seat check (needed for precise free-seat counts)
+headless: true
+browser_timeout_ms: 45000
+
+# Stop after the first successful alert
+stop_on_alert: false
+
+# Cool-down between identical alerts (seconds)
+alert_cooldown_seconds: 300
+
+alerts:
+  # Desktop beep / print is always on.
+  telegram:
+    enabled: false
+    bot_token: ""          # or set TELEGRAM_BOT_TOKEN env var
+    chat_id: ""            # or set TELEGRAM_CHAT_ID env var
+  discord:
+    enabled: false
+    webhook_url: ""        # or set DISCORD_WEBHOOK_URL env var
+  webhook:
+    enabled: false
+    url: ""                # generic POST JSON webhook / IFTTT / ntfy / etc.
