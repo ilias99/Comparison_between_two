@@ -60,6 +60,15 @@ def test_extract_free_seats_from_rows():
     assert monitor._extract_free_seats_from_json(payload) == 1
 
 
+def test_sanitize_yaml_text_handles_nbsp_and_smart_quotes():
+    dirty = "alerts:\n\u00a0\u00a0telegram:\n\u00a0\u00a0\u00a0\u00a0enabled: true\n\u00a0\u00a0\u00a0\u00a0bot_token: \u201c123:ABC\u201d\n"
+    clean = monitor.sanitize_yaml_text(dirty)
+    assert "\u00a0" not in clean
+    assert "\u201c" not in clean
+    data = __import__("yaml").safe_load(clean)
+    assert data["alerts"]["telegram"]["bot_token"] == "123:ABC"
+
+
 def test_is_alertable_with_seat_count():
     show = monitor.Showtime(
         time="2026-08-05 21:00:00",

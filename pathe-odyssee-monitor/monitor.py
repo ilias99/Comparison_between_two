@@ -94,6 +94,29 @@ class CheckResult:
     all_showtimes: list[Showtime]
 
 
+def sanitize_yaml_text(text: str) -> str:
+    """Normalize text that phone editors often corrupt.
+
+    Android/Samsung editors and copy-paste can inject non-breaking spaces,
+    smart quotes, or a UTF-8 BOM. Those still "look" identical on a laptop
+    preview but break PyYAML on Termux.
+    """
+    if text.startswith("\ufeff"):
+        text = text.lstrip("\ufeff")
+    # Unicode spaces -> ASCII space (keeps newlines/tabs out of this set)
+    text = re.sub(r"[\u00a0\u1680\u180e\u2000-\u200b\u202f\u205f\u3000\ufeff]", " ", text)
+    # Smart quotes -> plain quotes
+    text = (
+        text.replace("\u201c", '"')
+        .replace("\u201d", '"')
+        .replace("\u2018", "'")
+        .replace("\u2019", "'")
+    )
+    # Normalize newlines
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return text
+
+
 def load_config(path: Path) -> dict[str, Any]:
     if not path.exists():
         if EXAMPLE_CONFIG.exists():
@@ -103,16 +126,20 @@ def load_config(path: Path) -> dict[str, Any]:
             )
         raise SystemExit(f"Missing config file: {path}")
     try:
-        with path.open(encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or {}
+        raw = path.read_text(encoding="utf-8")
+        cfg = yaml.safe_load(sanitize_yaml_text(raw)) or {}
     except yaml.YAMLError as e:
         raise SystemExit(
             f"Invalid YAML in {path}:\n{e}\n\n"
-            "Common fix on Android/Termux: quote Telegram values, e.g.\n"
+            "If this file works on your laptop but fails on Android/Termux,\n"
+            "recreate it inside Termux (phone editors often insert invisible spaces):\n"
+            "  nano config.yaml\n\n"
+            "Also quote Telegram values, e.g.\n"
             '  bot_token: "123456:ABC..."\n'
-            '  chat_id: "108457361"\n'
-            "Also check indentation (use spaces, not tabs)."
+            '  chat_id: "108457361"'
         ) from e
+    if not isinstance(cfg, dict):
+        raise SystemExit(f"Config root must be a mapping/object in {path}")
     # Env overrides for secrets
     alerts = cfg.setdefault("alerts", {})
     tg = alerts.setdefault("telegram", {})

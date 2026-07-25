@@ -146,5 +146,6 @@ Event page: https://www.pathe.fr/evenements/l-odyssee-projection-imax-70mm-54413
 | Seat count always `unknown` / `could not parse seat map` | Run `python monitor.py debug-seats` (writes `debug-seats-output/`). Also try `headless: false`. Status-change alerts still work even if the seat map can’t be parsed. |
 | Too many alerts | Raise `alert_cooldown_seconds` or set `stop_on_alert: true` |
 | `No time zone found with key Europe/Paris` (Windows) | `pip install tzdata` then retry |
+| YAML parse error on Termux but same file works on laptop | Phone editor inserted invisible spaces/smart quotes. Update `monitor.py` (auto-sanitizes) or recreate with `nano config.yaml` inside Termux. |
 
 Be polite with polling (2+ minutes). This tool is for personal monitoring only.
