@@ -522,6 +522,19 @@ def notify(cfg: dict[str, Any], result: CheckResult) -> None:
             LOG.error("Webhook failed: %s", e)
 
 
+def get_timezone(name: str | None) -> ZoneInfo:
+    """Resolve IANA timezone; on Windows the tzdata package is required."""
+    key = name or "Europe/Paris"
+    try:
+        return ZoneInfo(key)
+    except Exception as e:
+        raise SystemExit(
+            f"Unknown/unavailable timezone {key!r}: {e}\n"
+            "On Windows, install timezone data then retry:\n"
+            "  pip install tzdata"
+        ) from e
+
+
 def setup_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
@@ -556,7 +569,7 @@ def loop(cfg: dict[str, Any]) -> int:
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
     last_alert_at = 0.0
 
-    tz = ZoneInfo(cfg.get("timezone") or "Europe/Paris")
+    tz = get_timezone(cfg.get("timezone"))
     LOG.info(
         "Watching %s @ %s %s %s (every %ss, mode=%s)",
         cfg["film_slug"],

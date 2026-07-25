@@ -24,7 +24,7 @@ Needs **Python 3.10+**.
 cd pathe-odyssee-monitor
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements.txt    # includes tzdata (needed on Windows)
 playwright install chromium
 ```
 
@@ -125,5 +125,6 @@ Event page: https://www.pathe.fr/evenements/l-odyssee-projection-imax-70mm-54413
 | No 21:00 show in `list` | Pathé may have changed the schedule — pick another time in `config.yaml` |
 | Seat count always `unknown` | Install Chromium (`playwright install chromium`), set `check_mode: seats`, try `headless: false` |
 | Too many alerts | Raise `alert_cooldown_seconds` or set `stop_on_alert: true` |
+| `No time zone found with key Europe/Paris` (Windows) | `pip install tzdata` then retry |
 
 Be polite with polling (2+ minutes). This tool is for personal monitoring only.
