@@ -108,7 +108,7 @@ Optional: keep it running in the background with `tmux` / `screen`, or a local c
 
 | Key | Meaning |
 |---|---|
-| `interval_seconds` | Poll period in seconds (min 60; default `120` = every **2 minutes**) |
+| `interval_seconds` | Poll period in seconds (min 60; default `60` = every **1 minute**) |
 | `min_free_seats` | Alert threshold |
 | `check_mode` | `auto` / `showtimes` / `seats` |
 | `stop_on_alert` | Stop after first alert |
