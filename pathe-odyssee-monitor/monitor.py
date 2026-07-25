@@ -636,6 +636,83 @@ def list_showtimes(cfg: dict[str, Any]) -> int:
     return 0
 
 
+def test_alert(cfg: dict[str, Any]) -> int:
+    """Send a Telegram/Discord/webhook test message using current config."""
+    alerts = cfg.get("alerts") or {}
+    tg = alerts.get("telegram") or {}
+    dc = alerts.get("discord") or {}
+    wh = alerts.get("webhook") or {}
+    any_enabled = False
+    ok = True
+
+    text = (
+        "✅ Test alerte Pathé monitor\n"
+        f"Cible: {cfg.get('film_slug')} @ {cfg.get('cinema_slug')}\n"
+        f"Séance: {cfg.get('date')} {cfg.get('time')} ({cfg.get('timezone')})\n"
+        "Si tu vois ce message, Telegram/Discord est bien configuré."
+    )
+
+    if tg.get("enabled"):
+        any_enabled = True
+        token = (tg.get("bot_token") or "").strip()
+        chat_id = str(tg.get("chat_id") or "").strip()
+        if not token or not chat_id:
+            LOG.error(
+                "Telegram enabled but bot_token/chat_id missing in config.yaml "
+                "(or TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID env vars)."
+            )
+            ok = False
+        else:
+            try:
+                send_telegram(token, chat_id, text)
+                LOG.info("Telegram OK — message sent to chat_id=%s", chat_id)
+            except Exception as e:
+                LOG.error("Telegram FAILED: %s", e)
+                ok = False
+    else:
+        LOG.warning("Telegram alerts.enabled is false in config.yaml")
+
+    if dc.get("enabled"):
+        any_enabled = True
+        url = (dc.get("webhook_url") or "").strip()
+        if not url:
+            LOG.error("Discord enabled but webhook_url is empty")
+            ok = False
+        else:
+            try:
+                send_discord(url, text)
+                LOG.info("Discord OK — webhook accepted the message")
+            except Exception as e:
+                LOG.error("Discord FAILED: %s", e)
+                ok = False
+
+    if wh.get("enabled"):
+        any_enabled = True
+        url = (wh.get("url") or "").strip()
+        if not url:
+            LOG.error("Webhook enabled but url is empty")
+            ok = False
+        else:
+            try:
+                send_webhook(url, {"message": text, "test": True})
+                LOG.info("Webhook OK")
+            except Exception as e:
+                LOG.error("Webhook FAILED: %s", e)
+                ok = False
+
+    if not any_enabled:
+        LOG.error(
+            "No alert channel enabled. In config.yaml set:\n"
+            "  alerts:\n"
+            "    telegram:\n"
+            "      enabled: true\n"
+            "      bot_token: \"...\"\n"
+            "      chat_id: \"...\""
+        )
+        return 2
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Monitor Pathé seat availability for L'Odyssée IMAX 70mm"
@@ -653,6 +730,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("once", help="Run a single check (default)")
     sub.add_parser("loop", help="Poll until interrupted")
     sub.add_parser("list", help="List all showtimes for the configured date")
+    sub.add_parser("test-alert", help="Send a test Telegram/Discord alert")
 
     args = parser.parse_args(argv)
     setup_logging(args.verbose)
@@ -663,6 +741,8 @@ def main(argv: list[str] | None = None) -> int:
         return list_showtimes(cfg)
     if command == "loop":
         return loop(cfg)
+    if command == "test-alert":
+        return test_alert(cfg)
     return once_and_print(cfg)
 
 

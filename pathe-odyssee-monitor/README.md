@@ -81,13 +81,33 @@ python monitor.py list
 
 You should see the 21:00 show (and others). If you get a **403**, leave the VPN / try another network.
 
-### 6) One-shot check
+### 6) Verify Telegram works
+
+Make sure `config.yaml` has:
+
+```yaml
+alerts:
+  telegram:
+    enabled: true
+    bot_token: "YOUR_TOKEN"
+    chat_id: "YOUR_CHAT_ID"
+```
+
+Then:
+
+```bash
+python monitor.py test-alert
+```
+
+You should get a Telegram message and see `Telegram OK` in the terminal.
+
+### 7) One-shot check
 
 ```bash
 python monitor.py once
 ```
 
-### 7) Start continuous monitoring
+### 8) Start continuous monitoring
 
 ```bash
 python monitor.py loop
