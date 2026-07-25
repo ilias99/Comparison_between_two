@@ -143,7 +143,7 @@ Event page: https://www.pathe.fr/evenements/l-odyssee-projection-imax-70mm-54413
 |---|---|
 | `403` / Akamai error | Run from home IP, disable VPN, retry later |
 | No 21:00 show in `list` | Pathé may have changed the schedule — pick another time in `config.yaml` |
-| Seat count always `unknown` | Install Chromium (`playwright install chromium`), set `check_mode: seats`, try `headless: false` |
+| Seat count always `unknown` / `could not parse seat map` | Run `python monitor.py debug-seats` (writes `debug-seats-output/`). Also try `headless: false`. Status-change alerts still work even if the seat map can’t be parsed. |
 | Too many alerts | Raise `alert_cooldown_seconds` or set `stop_on_alert: true` |
 | `No time zone found with key Europe/Paris` (Windows) | `pip install tzdata` then retry |
 

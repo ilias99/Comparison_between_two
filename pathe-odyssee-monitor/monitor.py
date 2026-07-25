@@ -201,96 +201,192 @@ def session_is_bookable(status: str) -> bool | None:
     return True
 
 
-def _extract_free_seats_from_json(payload: Any) -> int | None:
-    """Best-effort parse of booking/seat JSON shapes."""
-    if payload is None:
+FREE_SEAT_STATES = {
+    "available",
+    "free",
+    "vacant",
+    "open",
+    "empty",
+    "liberated",
+    "a",
+    "av",
+    "1",
+    "true",
+    "0",  # some engines use 0 = available
+}
+TAKEN_SEAT_STATES = {
+    "sold",
+    "taken",
+    "occupied",
+    "reserved",
+    "blocked",
+    "house",
+    "unavailable",
+    "disabled",
+    "broken",
+    "complet",
+    "so",
+    "b",
+    "2",
+    "3",
+}
+
+
+def _looks_like_seat(obj: dict[str, Any]) -> bool:
+    keys = {k.lower() for k in obj}
+    return bool(
+        keys
+        & {
+            "status",
+            "seatstatus",
+            "seatstatusid",
+            "availability",
+            "isavailable",
+            "available",
+            "seatnumber",
+            "seatsnumber",
+            "position",
+            "colindex",
+            "columnindex",
+            "seatid",
+            "idseat",
+        }
+    )
+
+
+def _seat_state(seat: dict[str, Any]) -> str:
+    for key in (
+        "status",
+        "Status",
+        "state",
+        "State",
+        "availability",
+        "Availability",
+        "seatStatus",
+        "SeatStatus",
+        "seatStatusId",
+        "SeatStatusId",
+    ):
+        if key in seat and seat[key] is not None:
+            return str(seat[key]).strip().lower()
+    return ""
+
+
+def _seat_is_free(seat: dict[str, Any]) -> bool | None:
+    seat_type = str(
+        seat.get("type")
+        or seat.get("seatType")
+        or seat.get("SeatType")
+        or seat.get("description")
+        or ""
+    ).lower()
+    if any(x in seat_type for x in ("wheelchair", "pmr", "handicap")):
+        return False
+    if seat.get("available") is True or seat.get("isAvailable") is True:
+        return True
+    if seat.get("available") is False or seat.get("isAvailable") is False:
+        return False
+    state = _seat_state(seat)
+    if not state:
         return None
-
-    if isinstance(payload, dict):
-        for key in (
-            "availableSeats",
-            "available_seats",
-            "freeSeats",
-            "free_seats",
-            "nbAvailableSeats",
-            "seatsAvailable",
-        ):
-            if key in payload and isinstance(payload[key], int):
-                return payload[key]
-
-        seats = payload.get("seats") or payload.get("seatList") or payload.get("items")
-        if isinstance(seats, list):
-            free = 0
-            seen = False
-            for seat in seats:
-                if not isinstance(seat, dict):
-                    continue
-                seen = True
-                state = str(
-                    seat.get("status")
-                    or seat.get("state")
-                    or seat.get("availability")
-                    or ""
-                ).lower()
-                seat_type = str(seat.get("type") or seat.get("seatType") or "").lower()
-                if state in {"available", "free", "vacant", "open", "a", "1", "true"}:
-                    if "wheelchair" in seat_type or "pmr" in seat_type:
-                        continue
-                    free += 1
-                elif seat.get("available") is True or seat.get("isAvailable") is True:
-                    free += 1
-            if seen:
-                return free
-
-        rows = payload.get("rows") or payload.get("Rows")
-        if isinstance(rows, list):
-            free = 0
-            seen = False
-            for row in rows:
-                row_seats = []
-                if isinstance(row, dict):
-                    row_seats = row.get("seats") or row.get("Seats") or []
-                if not isinstance(row_seats, list):
-                    continue
-                for seat in row_seats:
-                    if not isinstance(seat, dict):
-                        continue
-                    seen = True
-                    seat_type = str(
-                        seat.get("type") or seat.get("seatType") or ""
-                    ).lower()
-                    if "wheelchair" in seat_type or "pmr" in seat_type:
-                        continue
-                    state = str(
-                        seat.get("status")
-                        or seat.get("state")
-                        or seat.get("Status")
-                        or ""
-                    ).lower()
-                    if state in {"available", "free", "vacant", "open", "a"}:
-                        free += 1
-                    elif seat.get("available") is True:
-                        free += 1
-            if seen:
-                return free
-
-        # Recurse into nested objects commonly used by booking engines
-        for key in ("data", "result", "payload", "seatMap", "seatmap", "auditorium"):
-            if key in payload:
-                got = _extract_free_seats_from_json(payload[key])
-                if got is not None:
-                    return got
-
-    if isinstance(payload, list):
-        # list of seats
-        if payload and all(isinstance(x, dict) for x in payload):
-            return _extract_free_seats_from_json({"seats": payload})
-
+    if state in FREE_SEAT_STATES:
+        return True
+    if state in TAKEN_SEAT_STATES:
+        return False
+    if "avail" in state and "unavail" not in state:
+        return True
+    if any(x in state for x in ("sold", "taken", "occup", "reserv", "block")):
+        return False
     return None
 
 
+def _extract_free_seats_from_json(payload: Any) -> int | None:
+    """Best-effort parse of booking/seat JSON shapes (Pathé / Vista-like)."""
+    if payload is None:
+        return None
+
+    found_counts: list[int] = []
+
+    def walk(node: Any, depth: int = 0) -> None:
+        if depth > 12:
+            return
+        if isinstance(node, dict):
+            for key in (
+                "availableSeats",
+                "available_seats",
+                "freeSeats",
+                "free_seats",
+                "nbAvailableSeats",
+                "seatsAvailable",
+                "AvailableSeats",
+            ):
+                val = node.get(key)
+                if isinstance(val, int) and val >= 0:
+                    found_counts.append(val)
+
+            # Direct seat collections
+            for key in (
+                "seats",
+                "Seats",
+                "seatList",
+                "SeatList",
+                "items",
+                "Places",
+                "places",
+            ):
+                seats = node.get(key)
+                if isinstance(seats, list) and seats and all(
+                    isinstance(x, dict) for x in seats
+                ):
+                    free = 0
+                    seen = 0
+                    for seat in seats:
+                        if not _looks_like_seat(seat) and not any(
+                            k in seat for k in ("status", "Status", "available", "isAvailable")
+                        ):
+                            continue
+                        flag = _seat_is_free(seat)
+                        if flag is None:
+                            continue
+                        seen += 1
+                        if flag:
+                            free += 1
+                    if seen:
+                        found_counts.append(free)
+
+            for value in node.values():
+                walk(value, depth + 1)
+        elif isinstance(node, list):
+            # list of seat-like dicts
+            if node and all(isinstance(x, dict) for x in node):
+                seatish = [x for x in node if _looks_like_seat(x)]
+                if len(seatish) >= 5:
+                    free = 0
+                    seen = 0
+                    for seat in seatish:
+                        flag = _seat_is_free(seat)
+                        if flag is None:
+                            continue
+                        seen += 1
+                        if flag:
+                            free += 1
+                    if seen:
+                        found_counts.append(free)
+            for item in node:
+                walk(item, depth + 1)
+
+    walk(payload)
+    if not found_counts:
+        return None
+    # Prefer the largest seat-collection interpretation (full map), not tiny nested counts
+    return max(found_counts)
+
+
 def count_free_seats_playwright(
-    booking_url: str, headless: bool = True, timeout_ms: int = 45000
+    booking_url: str,
+    headless: bool = True,
+    timeout_ms: int = 45000,
+    debug_dir: Path | None = None,
 ) -> tuple[int | None, str]:
     if sync_playwright is None:
         return None, "Playwright is not installed. Run: pip install -r requirements.txt && playwright install chromium"
@@ -300,6 +396,10 @@ def count_free_seats_playwright(
 
     json_counts: list[int] = []
     notes: list[str] = []
+    json_meta: list[dict[str, Any]] = []
+    body_text = ""
+    final_url = booking_url
+    title = ""
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
@@ -307,6 +407,7 @@ def count_free_seats_playwright(
             locale="fr-FR",
             timezone_id="Europe/Paris",
             user_agent=USER_AGENT,
+            viewport={"width": 1400, "height": 900},
         )
         page = context.new_page()
 
@@ -316,77 +417,181 @@ def count_free_seats_playwright(
                 url = resp.url
                 if resp.status != 200:
                     return
-                interesting = any(
-                    k in url.lower()
-                    for k in ("seat", "booking", "placement", "availability", "session")
-                )
-                if "application/json" not in ctype and not interesting:
+                if "application/json" not in ctype and "text/json" not in ctype:
+                    # still try obvious seat endpoints returning other types
+                    if not any(
+                        k in url.lower()
+                        for k in (
+                            "seat",
+                            "placement",
+                            "availability",
+                            "vista",
+                            "booking",
+                        )
+                    ):
+                        return
+                try:
+                    data = resp.json()
+                except Exception:
                     return
-                if "application/json" not in ctype:
-                    return
-                data = resp.json()
                 got = _extract_free_seats_from_json(data)
+                path = urlparse(url).path
+                json_meta.append(
+                    {
+                        "url": url,
+                        "path": path,
+                        "parsed_free_seats": got,
+                        "top_keys": list(data.keys())[:40]
+                        if isinstance(data, dict)
+                        else [f"list[{len(data)}]"]
+                        if isinstance(data, list)
+                        else [type(data).__name__],
+                    }
+                )
                 if got is not None:
                     json_counts.append(got)
-                    notes.append(f"json:{urlparse(url).path}={got}")
+                    notes.append(f"json:{path}={got}")
+                    if debug_dir is not None:
+                        debug_dir.mkdir(parents=True, exist_ok=True)
+                        safe = re.sub(r"[^a-zA-Z0-9._-]+", "_", path.strip("/"))[:80]
+                        (debug_dir / f"json_{safe or 'root'}.json").write_text(
+                            json.dumps(data, ensure_ascii=False, indent=2)[:2_000_000],
+                            encoding="utf-8",
+                        )
             except Exception:
                 return
 
         page.on("response", on_response)
         page.goto(booking_url, wait_until="domcontentloaded", timeout=timeout_ms)
-        # Cookie banners / consent — best effort
+
+        # Cookie / consent banners
         for selector in (
             "button:has-text('Tout accepter')",
+            "button:has-text('Tout Accepter')",
+            "button:has-text('Accepter & Fermer')",
             "button:has-text('Accepter')",
             "button:has-text('Accept all')",
+            "button:has-text('Accept')",
             "#didomi-notice-agree-button",
+            "button#onetrust-accept-btn-handler",
         ):
             try:
-                page.locator(selector).first.click(timeout=2000)
+                loc = page.locator(selector).first
+                if loc.is_visible(timeout=1500):
+                    loc.click(timeout=2000)
+                    page.wait_for_timeout(500)
             except Exception:
                 pass
 
-        page.wait_for_timeout(4000)
+        # Booking flows sometimes need an explicit continue / choose seats step
+        for selector in (
+            "button:has-text('Choisir')",
+            "button:has-text('Continuer')",
+            "button:has-text('Sélectionner')",
+            "a:has-text('Choisir mes places')",
+            "button:has-text('places')",
+        ):
+            try:
+                loc = page.locator(selector).first
+                if loc.is_visible(timeout=1500):
+                    loc.click(timeout=2000)
+                    page.wait_for_timeout(1000)
+            except Exception:
+                pass
 
-        # DOM heuristics for free seats
+        try:
+            page.wait_for_load_state("networkidle", timeout=min(15000, timeout_ms))
+        except Exception:
+            pass
+        page.wait_for_timeout(5000)
+
+        # Also scan same-origin frames
+        frames = page.frames
+        dom_count = None
         dom_selectors = [
             "[data-status='available']",
             "[data-seat-status='available']",
+            "[data-seat-status='Available']",
             ".seat.available",
             ".seat--available",
             ".seat-available",
-            "button.seat:not([disabled])",
+            ".seat.is-available",
+            "button.seat:not([disabled]):not(.disabled):not(.sold)",
             ".placement-seat.available",
             "[class*='seat'][class*='available']",
+            "svg [class*='available']",
+            "[aria-label*='disponible' i]",
+            "[title*='disponible' i]",
         ]
-        dom_count = None
-        for sel in dom_selectors:
-            try:
-                n = page.locator(sel).count()
-                if n > 0:
-                    dom_count = n
-                    notes.append(f"dom:{sel}={n}")
-                    break
-            except Exception:
-                continue
+        for frame in frames:
+            for sel in dom_selectors:
+                try:
+                    n = frame.locator(sel).count()
+                    if n > 0:
+                        dom_count = n
+                        notes.append(f"dom:{sel}={n}")
+                        break
+                except Exception:
+                    continue
+            if dom_count is not None:
+                break
 
-        # Text fallback: visible "Complet" with no selectable seats
-        body_text = ""
         try:
             body_text = page.inner_text("body")
+            final_url = page.url
+            title = page.title()
         except Exception:
             pass
+
+        if debug_dir is not None:
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                page.screenshot(path=str(debug_dir / "booking.png"), full_page=True)
+            except Exception:
+                pass
+            try:
+                (debug_dir / "booking.html").write_text(page.content(), encoding="utf-8")
+            except Exception:
+                pass
+            (debug_dir / "network_json_index.json").write_text(
+                json.dumps(json_meta, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            (debug_dir / "page_meta.json").write_text(
+                json.dumps(
+                    {
+                        "booking_url": booking_url,
+                        "final_url": final_url,
+                        "title": title,
+                        "notes": notes,
+                        "json_counts": json_counts,
+                        "dom_count": dom_count,
+                        "body_excerpt": body_text[:4000],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
 
         browser.close()
 
     if json_counts:
-        # Prefer the smallest positive interpretation from seat map payloads
         return max(json_counts), "; ".join(notes) or "seat json"
     if dom_count is not None:
         return dom_count, "; ".join(notes) or "seat dom"
     if re.search(r"\bcomplet\b", body_text, re.I):
         return 0, "booking page shows Complet"
-    return None, "could not parse seat map (session may still be bookable — open the link)"
+    if re.search(r"plus de places? disponibles?|aucune place", body_text, re.I):
+        return 0, "booking page says no seats left"
+    hint = "could not parse seat map"
+    if debug_dir is not None:
+        hint += f" — debug saved in {debug_dir}"
+    else:
+        hint += " — run: python monitor.py debug-seats"
+    # Status monitoring still works even if seat HTML/JSON can't be parsed.
+    hint += " (alerts still fire if Pathé status leaves soldout)"
+    return None, hint
 
 
 def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
@@ -430,6 +635,7 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
             booking_url,
             headless=bool(cfg.get("headless", True)),
             timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
+            debug_dir=Path(cfg["debug_dir"]) if cfg.get("debug_dir") else None,
         )
         detail = f"{detail} | seats: {seat_detail}"
     elif mode == "auto" and not booking_url and bookable is False:
@@ -636,6 +842,34 @@ def list_showtimes(cfg: dict[str, Any]) -> int:
     return 0
 
 
+def debug_seats(cfg: dict[str, Any]) -> int:
+    """Open the booking page once and dump HTML/JSON/screenshot for inspection."""
+    session = build_session()
+    showtimes = fetch_showtimes(
+        session, cfg["film_slug"], cfg["cinema_slug"], cfg["date"]
+    )
+    show = match_showtime(showtimes, cfg)
+    if not show:
+        LOG.error("No matching showtime to debug")
+        return 2
+    if not show.ref_cmd:
+        LOG.error("Matched showtime has no booking URL (refCmd)")
+        return 2
+
+    out = Path(__file__).with_name("debug-seats-output")
+    LOG.info("Debugging seats for %s", show.time)
+    LOG.info("Booking URL: %s", show.ref_cmd)
+    free, detail = count_free_seats_playwright(
+        show.ref_cmd,
+        headless=bool(cfg.get("headless", True)),
+        timeout_ms=int(cfg.get("browser_timeout_ms", 60000)),
+        debug_dir=out,
+    )
+    LOG.info("Result free_seats=%s (%s)", free, detail)
+    LOG.info("Debug files written to %s", out.resolve())
+    return 0 if free is not None else 1
+
+
 def test_alert(cfg: dict[str, Any]) -> int:
     """Send a Telegram/Discord/webhook test message using current config."""
     alerts = cfg.get("alerts") or {}
@@ -731,6 +965,10 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("loop", help="Poll until interrupted")
     sub.add_parser("list", help="List all showtimes for the configured date")
     sub.add_parser("test-alert", help="Send a test Telegram/Discord alert")
+    sub.add_parser(
+        "debug-seats",
+        help="Open booking page once and dump seat-map debug files",
+    )
 
     args = parser.parse_args(argv)
     setup_logging(args.verbose)
@@ -743,6 +981,8 @@ def main(argv: list[str] | None = None) -> int:
         return loop(cfg)
     if command == "test-alert":
         return test_alert(cfg)
+    if command == "debug-seats":
+        return debug_seats(cfg)
     return once_and_print(cfg)
 
 
