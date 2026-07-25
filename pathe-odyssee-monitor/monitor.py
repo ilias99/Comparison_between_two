@@ -409,15 +409,19 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     bookable = session_is_bookable(show.status)
     mode = (cfg.get("check_mode") or "auto").lower()
     free_seats: int | None = None
+    booking_url = show.ref_cmd or None
     detail = (
         f"Matched {show.time} status={show.status!r} version={show.version!r} "
         f"tags={show.tags} room={show.auditorium_name} capacity={show.auditorium_capacity}"
     )
-    booking_url = show.ref_cmd or None
+    if booking_url:
+        detail = f"{detail} booking={booking_url}"
+    else:
+        detail = f"{detail} booking=(none)"
 
-    need_seats = mode == "seats" or (
-        mode == "auto" and bookable is True and booking_url
-    )
+    # In auto mode, always try the seat map when a booking URL exists — including
+    # sold-out shows, because cancellations can free seats before status flips.
+    need_seats = mode == "seats" or (mode == "auto" and bool(booking_url))
     if mode == "showtimes":
         need_seats = False
 
@@ -428,6 +432,11 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
             timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
         )
         detail = f"{detail} | seats: {seat_detail}"
+    elif mode == "auto" and not booking_url and bookable is False:
+        detail = (
+            f"{detail} | no booking link while sold out — "
+            "will alert when Pathé status becomes available"
+        )
 
     return CheckResult(
         matched=True,
@@ -522,6 +531,19 @@ def notify(cfg: dict[str, Any], result: CheckResult) -> None:
             LOG.error("Webhook failed: %s", e)
 
 
+def get_timezone(name: str | None) -> ZoneInfo:
+    """Resolve IANA timezone; on Windows the tzdata package is required."""
+    key = name or "Europe/Paris"
+    try:
+        return ZoneInfo(key)
+    except Exception as e:
+        raise SystemExit(
+            f"Unknown/unavailable timezone {key!r}: {e}\n"
+            "On Windows, install timezone data then retry:\n"
+            "  pip install tzdata"
+        ) from e
+
+
 def setup_logging(verbose: bool) -> None:
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
@@ -550,13 +572,13 @@ def once_and_print(cfg: dict[str, Any]) -> int:
 
 def loop(cfg: dict[str, Any]) -> int:
     session = build_session()
-    interval = max(60, int(cfg.get("interval_seconds", 120)))
+    interval = max(60, int(cfg.get("interval_seconds", 60)))
     min_free = int(cfg.get("min_free_seats", 1))
     cooldown = int(cfg.get("alert_cooldown_seconds", 300))
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
     last_alert_at = 0.0
 
-    tz = ZoneInfo(cfg.get("timezone") or "Europe/Paris")
+    tz = get_timezone(cfg.get("timezone"))
     LOG.info(
         "Watching %s @ %s %s %s (every %ss, mode=%s)",
         cfg["film_slug"],
