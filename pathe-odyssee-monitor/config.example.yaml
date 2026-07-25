@@ -20,9 +20,10 @@ interval_seconds: 60
 min_free_seats: 1
 
 # How to check availability:
-# - auto: use showtimes status, then open booking page for a seat count when possible
-# - showtimes: only Pathé showtimes API (session-level status)
-# - seats: always open the booking page and count free seats (Playwright)
+# - auto: showtimes + Playwright seat map + HTTP booking probe (best on PC)
+# - showtimes: showtimes + lightweight HTTP booking probe (best on Termux/phone)
+# - seats: Playwright seat map (+ HTTP fallback)
+# Note: Pathé can keep status=soldout while 1 cancelled seat is briefly free.
 check_mode: auto
 
 # Browser seat check (needed for precise free-seat counts)

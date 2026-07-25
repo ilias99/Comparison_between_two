@@ -144,6 +144,7 @@ Event page: https://www.pathe.fr/evenements/l-odyssee-projection-imax-70mm-54413
 | `403` / Akamai error | Run from home IP, disable VPN, retry later |
 | No 21:00 show in `list` | Pathé may have changed the schedule — pick another time in `config.yaml` |
 | Seat count always `unknown` / `could not parse seat map` | Run `python monitor.py debug-seats` (writes `debug-seats-output/`). Also try `headless: false`. Status-change alerts still work even if the seat map can’t be parsed. |
+| Cancelled a seat but no Telegram / still shows Complet | Normal: Pathé often keeps session `soldout` while 1 seat is free for only seconds. Status-only checks miss that. Use latest monitor (HTTP booking probe) on PC, react instantly, don’t rely on phone-only. |
 | Too many alerts | Raise `alert_cooldown_seconds` or set `stop_on_alert: true` |
 | `No time zone found with key Europe/Paris` (Windows) | `pip install tzdata` then retry |
 | YAML parse error on Termux but same file works on laptop | Phone editor inserted invisible spaces/smart quotes. Update `monitor.py` (auto-sanitizes) or recreate with `nano config.yaml` inside Termux. |

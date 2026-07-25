@@ -630,6 +630,102 @@ def count_free_seats_playwright(
     return None, hint
 
 
+def probe_booking_http(
+    session: requests.Session, booking_url: str
+) -> tuple[int | None, str]:
+    """Lightweight booking-page probe (works on Termux; no Playwright).
+
+    Pathé often keeps showtimes status='soldout' even when 1 seat briefly frees.
+    Probing the booking URL/HTML/JSON is the only way to catch that window.
+    """
+    if not booking_url:
+        return None, "no booking url"
+
+    candidates = [booking_url]
+    # Derive a few sibling endpoints from .../V3335S214446/booking
+    base = booking_url.rstrip("/")
+    if base.endswith("/booking"):
+        root = base[: -len("/booking")]
+        candidates.extend(
+            [
+                f"{root}/seats",
+                f"{root}/placement",
+                f"{root}/seat-map",
+                f"{root}/api/seats",
+            ]
+        )
+
+    notes: list[str] = []
+    best_free: int | None = None
+
+    for url in candidates:
+        try:
+            r = session.get(url, timeout=25, allow_redirects=True)
+        except Exception as e:
+            notes.append(f"http-err:{urlparse(url).path}:{e.__class__.__name__}")
+            continue
+
+        ctype = (r.headers.get("content-type") or "").lower()
+        path = urlparse(url).path or "/"
+
+        if r.status_code == 403:
+            notes.append(f"http:{path}:403")
+            continue
+        if r.status_code >= 400:
+            notes.append(f"http:{path}:{r.status_code}")
+            continue
+
+        # JSON seat payloads
+        if "json" in ctype or r.text.lstrip().startswith(("{", "[")):
+            try:
+                data = r.json()
+                got = _extract_free_seats_from_json(data)
+                if got is not None:
+                    best_free = got if best_free is None else max(best_free, got)
+                    notes.append(f"http-json:{path}={got}")
+                else:
+                    notes.append(f"http-json:{path}:unparsed")
+                continue
+            except Exception:
+                pass
+
+        text = r.text or ""
+        # Explicit sold-out markers
+        if re.search(
+            r"\bcomplet\b|plus de places? disponibles?|aucune place disponible|sold.?out",
+            text,
+            re.I,
+        ):
+            if best_free is None:
+                best_free = 0
+            notes.append(f"http-html:{path}:complet")
+            continue
+
+        # Available-seat markers in HTML/JS
+        avail_hits = len(
+            re.findall(
+                r"data-status=[\"']available[\"']|"
+                r"seat[^\"']*available|"
+                r"[\"']status[\"']\s*:\s*[\"']available[\"']|"
+                r"[\"']SeatStatus[\"']\s*:\s*[\"']Available[\"']|"
+                r"place disponible",
+                text,
+                re.I,
+            )
+        )
+        if avail_hits > 0:
+            # Heuristic count — enough to trigger an alert
+            estimate = max(1, min(avail_hits, 50))
+            best_free = estimate if best_free is None else max(best_free, estimate)
+            notes.append(f"http-html:{path}:avail~{estimate}")
+        else:
+            notes.append(f"http-html:{path}:no-avail-marker")
+
+    if best_free is not None:
+        return best_free, "; ".join(notes) or "http probe"
+    return None, "; ".join(notes) or "http probe failed"
+
+
 def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     showtimes = fetch_showtimes(
         session, cfg["film_slug"], cfg["cinema_slug"], cfg["date"]
@@ -660,20 +756,26 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     else:
         detail = f"{detail} booking=(none)"
 
-    # In auto mode, always try the seat map when a booking URL exists — including
-    # sold-out shows, because cancellations can free seats before status flips.
-    need_seats = mode == "seats" or (mode == "auto" and bool(booking_url))
-    if mode == "showtimes":
-        need_seats = False
-
-    if need_seats and booking_url:
-        free_seats, seat_detail = count_free_seats_playwright(
-            booking_url,
-            headless=bool(cfg.get("headless", True)),
-            timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
-            debug_dir=Path(cfg["debug_dir"]) if cfg.get("debug_dir") else None,
-        )
-        detail = f"{detail} | seats: {seat_detail}"
+    # Pathé can keep status='soldout' while one cancelled seat is briefly free.
+    # Always probe the booking link when present (HTTP on phone; Playwright on PC).
+    if booking_url and mode in {"auto", "seats", "showtimes"}:
+        if mode in {"auto", "seats"} and sync_playwright is not None:
+            free_seats, seat_detail = count_free_seats_playwright(
+                booking_url,
+                headless=bool(cfg.get("headless", True)),
+                timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
+                debug_dir=Path(cfg["debug_dir"]) if cfg.get("debug_dir") else None,
+            )
+            detail = f"{detail} | seats: {seat_detail}"
+            # If Playwright cannot parse, fall back to HTTP markers
+            if free_seats is None:
+                http_free, http_detail = probe_booking_http(session, booking_url)
+                if http_free is not None:
+                    free_seats = http_free
+                detail = f"{detail} | http: {http_detail}"
+        else:
+            free_seats, http_detail = probe_booking_http(session, booking_url)
+            detail = f"{detail} | http: {http_detail}"
     elif mode == "auto" and not booking_url and bookable is False:
         detail = (
             f"{detail} | no booking link while sold out — "
