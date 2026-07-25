@@ -572,7 +572,7 @@ def once_and_print(cfg: dict[str, Any]) -> int:
 
 def loop(cfg: dict[str, Any]) -> int:
     session = build_session()
-    interval = max(60, int(cfg.get("interval_seconds", 120)))
+    interval = max(60, int(cfg.get("interval_seconds", 60)))
     min_free = int(cfg.get("min_free_seats", 1))
     cooldown = int(cfg.get("alert_cooldown_seconds", 300))
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
