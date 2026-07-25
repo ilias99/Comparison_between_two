@@ -1,0 +1,32 @@
+# Ready-to-run defaults for:
+# L'Odyssée : Projection IMAX 70mm — Pathé Odysseum — 5 Aug 2026 21:00 (France)
+
+film_slug: l-odyssee-projection-imax-70mm-54413
+cinema_slug: cinema-pathe-odysseum
+date: "2026-08-05"
+time: "21:00"
+timezone: Europe/Paris
+
+required_version: ""
+required_tags_any: []
+required_tags_all: []
+
+interval_seconds: 120
+min_free_seats: 1
+check_mode: auto
+headless: true
+browser_timeout_ms: 45000
+stop_on_alert: false
+alert_cooldown_seconds: 300
+
+alerts:
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+  discord:
+    enabled: false
+    webhook_url: ""
+  webhook:
+    enabled: false
+    url: ""
