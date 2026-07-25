@@ -409,15 +409,19 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     bookable = session_is_bookable(show.status)
     mode = (cfg.get("check_mode") or "auto").lower()
     free_seats: int | None = None
+    booking_url = show.ref_cmd or None
     detail = (
         f"Matched {show.time} status={show.status!r} version={show.version!r} "
         f"tags={show.tags} room={show.auditorium_name} capacity={show.auditorium_capacity}"
     )
-    booking_url = show.ref_cmd or None
+    if booking_url:
+        detail = f"{detail} booking={booking_url}"
+    else:
+        detail = f"{detail} booking=(none)"
 
-    need_seats = mode == "seats" or (
-        mode == "auto" and bookable is True and booking_url
-    )
+    # In auto mode, always try the seat map when a booking URL exists — including
+    # sold-out shows, because cancellations can free seats before status flips.
+    need_seats = mode == "seats" or (mode == "auto" and bool(booking_url))
     if mode == "showtimes":
         need_seats = False
 
@@ -428,6 +432,11 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
             timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
         )
         detail = f"{detail} | seats: {seat_detail}"
+    elif mode == "auto" and not booking_url and bookable is False:
+        detail = (
+            f"{detail} | no booking link while sold out — "
+            "will alert when Pathé status becomes available"
+        )
 
     return CheckResult(
         matched=True,
