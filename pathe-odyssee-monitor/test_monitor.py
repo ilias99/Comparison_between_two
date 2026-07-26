@@ -91,3 +91,38 @@ def test_is_alertable_with_seat_count():
     )
     assert monitor.is_alertable(result, 1) is True
     assert monitor.is_alertable(result, 5) is False
+
+
+def test_should_send_alert_only_on_transition():
+    show = monitor.Showtime(
+        time="2026-08-05 21:00:00",
+        status="available",
+        version="vost",
+        tags=["imax"],
+        ref_cmd="https://s.pathe.fr/fr/x/booking",
+        auditorium_name="IMAX",
+        auditorium_capacity=228,
+        raw={},
+    )
+    available = monitor.CheckResult(
+        matched=True,
+        showtime=show,
+        session_bookable=True,
+        free_seats=None,
+        booking_url=show.ref_cmd,
+        detail="ok",
+        all_showtimes=[show],
+    )
+    # First transition into available -> alert
+    send, reason = monitor.should_send_alert(
+        available, 1, {"alertable": False, "free_seats": None}, True
+    )
+    assert send is True
+    assert "transition" in reason
+
+    # Still available (Pathé often keeps this after seats are taken) -> no spam
+    send, reason = monitor.should_send_alert(
+        available, 1, {"alertable": True, "free_seats": None}, True
+    )
+    assert send is False
+    assert "already alerted" in reason

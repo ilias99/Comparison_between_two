@@ -8,3 +8,4 @@ venv/
 playwright-report/
 test-results/
 debug-seats-output/
+.monitor_state.json

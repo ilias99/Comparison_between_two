@@ -36,6 +36,10 @@ stop_on_alert: false
 # Cool-down between identical alerts (seconds)
 alert_cooldown_seconds: 300
 
+# Only alert when availability appears / increases — not while Pathé keeps
+# status='available' after the seat was taken again (recommended: true)
+alert_on_transition_only: true
+
 alerts:
   # Desktop beep / print is always on.
   telegram:

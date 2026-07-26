@@ -18,6 +18,7 @@ headless: true
 browser_timeout_ms: 45000
 stop_on_alert: false
 alert_cooldown_seconds: 300
+alert_on_transition_only: true
 
 alerts:
   telegram:

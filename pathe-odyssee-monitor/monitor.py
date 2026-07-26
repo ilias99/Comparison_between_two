@@ -798,8 +798,88 @@ def is_alertable(result: CheckResult, min_free: int) -> bool:
         return False
     if result.free_seats is not None:
         return result.free_seats >= min_free
-    # Fallback when seat map could not be parsed: alert if session status is bookable
+    # Fallback when seat map could not be parsed: alert if session status is bookable.
+    # Note: Pathé often keeps status='available' even after the room fills again.
     return result.session_bookable is True
+
+
+def watch_key(cfg: dict[str, Any]) -> str:
+    return (
+        f"{cfg.get('film_slug')}|{cfg.get('cinema_slug')}|"
+        f"{cfg.get('date')}|{cfg.get('time')}"
+    )
+
+
+def state_path_for(cfg: dict[str, Any]) -> Path:
+    custom = cfg.get("state_file")
+    if custom:
+        return Path(custom)
+    return Path(__file__).with_name(".monitor_state.json")
+
+
+def load_monitor_state(path: Path) -> dict[str, Any]:
+    try:
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception as e:
+        LOG.warning("Could not read state file %s: %s", path, e)
+    return {}
+
+
+def save_monitor_state(path: Path, state: dict[str, Any]) -> None:
+    try:
+        path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        LOG.warning("Could not write state file %s: %s", path, e)
+
+
+def should_send_alert(
+    result: CheckResult,
+    min_free: int,
+    prev: dict[str, Any] | None,
+    transition_only: bool,
+) -> tuple[bool, str]:
+    """Decide whether to notify.
+
+    Pathé often leaves status='available' after a brief free seat was taken.
+    Default behavior alerts only on a rising edge (not-available -> available),
+    or when the estimated free-seat count increases.
+    """
+    alertable = is_alertable(result, min_free)
+    prev = prev or {}
+    prev_alertable = bool(prev.get("alertable"))
+    prev_free = prev.get("free_seats")
+
+    if not alertable:
+        return False, "not alertable"
+
+    if not transition_only:
+        return True, "alertable"
+
+    # Rising edge: was not alertable, now is
+    if not prev_alertable:
+        return True, "transition to available"
+
+    # Free-seat count increased (another cancellation while still 'available')
+    if (
+        result.free_seats is not None
+        and isinstance(prev_free, int)
+        and result.free_seats > prev_free
+    ):
+        return True, f"free_seats increased {prev_free}->{result.free_seats}"
+
+    if (
+        result.free_seats is not None
+        and prev_free is None
+        and result.free_seats >= min_free
+        and prev_alertable
+    ):
+        # We newly learned a concrete free-seat count
+        return True, f"free_seats confirmed={result.free_seats}"
+
+    return False, "already alerted for current available period"
 
 
 def send_telegram(token: str, chat_id: str, text: str) -> None:
@@ -903,6 +983,7 @@ def once_and_print(cfg: dict[str, Any]) -> int:
     if not result.matched:
         return 2
     min_free = int(cfg.get("min_free_seats", 1))
+    # `once` always notifies if currently alertable (manual check).
     if is_alertable(result, min_free):
         notify(cfg, result)
         return 0
@@ -920,7 +1001,14 @@ def loop(cfg: dict[str, Any]) -> int:
     min_free = int(cfg.get("min_free_seats", 1))
     cooldown = int(cfg.get("alert_cooldown_seconds", 300))
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
+    transition_only = bool(cfg.get("alert_on_transition_only", True))
     last_alert_at = 0.0
+
+    state_file = state_path_for(cfg)
+    all_state = load_monitor_state(state_file)
+    key = watch_key(cfg)
+    prev = dict(all_state.get(key) or {})
+    first_sample = key not in all_state
 
     tz = get_timezone(cfg.get("timezone"))
     if interval < 60:
@@ -930,29 +1018,69 @@ def loop(cfg: dict[str, Any]) -> int:
             interval,
         )
     LOG.info(
-        "Watching %s @ %s %s %s (every %ss, mode=%s)",
+        "Watching %s @ %s %s %s (every %ss, mode=%s, transition_only=%s)",
         cfg["film_slug"],
         cfg["cinema_slug"],
         cfg["date"],
         cfg["time"],
         interval,
         cfg.get("check_mode", "auto"),
+        transition_only,
     )
+    if prev:
+        LOG.info(
+            "Loaded prior state: alertable=%s free_seats=%s status=%s",
+            prev.get("alertable"),
+            prev.get("free_seats"),
+            prev.get("status"),
+        )
 
     while True:
         now = datetime.now(tz)
         try:
             result = check_once(session, cfg)
             LOG.info(result.detail)
-            if is_alertable(result, min_free):
+            alertable = is_alertable(result, min_free)
+            if first_sample and transition_only:
+                # Remember current Pathé state without replaying a past availability.
+                send, reason = False, "bootstrap current state (no alert)"
+                first_sample = False
+            else:
+                send, reason = should_send_alert(
+                    result, min_free, prev, transition_only=transition_only
+                )
+
+            # Persist current observation (even when not alerting)
+            prev = {
+                "alertable": alertable,
+                "free_seats": result.free_seats,
+                "status": result.showtime.status if result.showtime else None,
+                "bookable": result.session_bookable,
+                "updated_at": now.isoformat(),
+            }
+            all_state[key] = prev
+            save_monitor_state(state_file, all_state)
+
+            if send:
                 if time.time() - last_alert_at >= cooldown:
+                    LOG.info("Sending alert (%s)", reason)
                     notify(cfg, result)
                     last_alert_at = time.time()
+                    prev["last_alert_at"] = last_alert_at
+                    all_state[key] = prev
+                    save_monitor_state(state_file, all_state)
                     if stop_on_alert:
                         LOG.info("Stopping after alert (stop_on_alert=true)")
                         return 0
                 else:
-                    LOG.info("Alert suppressed (cooldown)")
+                    LOG.info("Alert suppressed (cooldown) — %s", reason)
+            elif alertable:
+                LOG.info(
+                    "Still available, no new alert — %s (free_seats=%s bookable=%s)",
+                    reason,
+                    result.free_seats,
+                    result.session_bookable,
+                )
             else:
                 LOG.info(
                     "Still waiting — free_seats=%s bookable=%s (%s)",
