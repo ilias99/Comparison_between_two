@@ -94,6 +94,29 @@ class CheckResult:
     all_showtimes: list[Showtime]
 
 
+def sanitize_yaml_text(text: str) -> str:
+    """Normalize text that phone editors often corrupt.
+
+    Android/Samsung editors and copy-paste can inject non-breaking spaces,
+    smart quotes, or a UTF-8 BOM. Those still "look" identical on a laptop
+    preview but break PyYAML on Termux.
+    """
+    if text.startswith("\ufeff"):
+        text = text.lstrip("\ufeff")
+    # Unicode spaces -> ASCII space (keeps newlines/tabs out of this set)
+    text = re.sub(r"[\u00a0\u1680\u180e\u2000-\u200b\u202f\u205f\u3000\ufeff]", " ", text)
+    # Smart quotes -> plain quotes
+    text = (
+        text.replace("\u201c", '"')
+        .replace("\u201d", '"')
+        .replace("\u2018", "'")
+        .replace("\u2019", "'")
+    )
+    # Normalize newlines
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return text
+
+
 def load_config(path: Path) -> dict[str, Any]:
     if not path.exists():
         if EXAMPLE_CONFIG.exists():
@@ -102,8 +125,21 @@ def load_config(path: Path) -> dict[str, Any]:
                 f"  cp {EXAMPLE_CONFIG.name} {path.name}"
             )
         raise SystemExit(f"Missing config file: {path}")
-    with path.open(encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
+    try:
+        raw = path.read_text(encoding="utf-8")
+        cfg = yaml.safe_load(sanitize_yaml_text(raw)) or {}
+    except yaml.YAMLError as e:
+        raise SystemExit(
+            f"Invalid YAML in {path}:\n{e}\n\n"
+            "If this file works on your laptop but fails on Android/Termux,\n"
+            "recreate it inside Termux (phone editors often insert invisible spaces):\n"
+            "  nano config.yaml\n\n"
+            "Also quote Telegram values, e.g.\n"
+            '  bot_token: "123456:ABC..."\n'
+            '  chat_id: "108457361"'
+        ) from e
+    if not isinstance(cfg, dict):
+        raise SystemExit(f"Config root must be a mapping/object in {path}")
     # Env overrides for secrets
     alerts = cfg.setdefault("alerts", {})
     tg = alerts.setdefault("telegram", {})
@@ -594,6 +630,102 @@ def count_free_seats_playwright(
     return None, hint
 
 
+def probe_booking_http(
+    session: requests.Session, booking_url: str
+) -> tuple[int | None, str]:
+    """Lightweight booking-page probe (works on Termux; no Playwright).
+
+    Pathé often keeps showtimes status='soldout' even when 1 seat briefly frees.
+    Probing the booking URL/HTML/JSON is the only way to catch that window.
+    """
+    if not booking_url:
+        return None, "no booking url"
+
+    candidates = [booking_url]
+    # Derive a few sibling endpoints from .../V3335S214446/booking
+    base = booking_url.rstrip("/")
+    if base.endswith("/booking"):
+        root = base[: -len("/booking")]
+        candidates.extend(
+            [
+                f"{root}/seats",
+                f"{root}/placement",
+                f"{root}/seat-map",
+                f"{root}/api/seats",
+            ]
+        )
+
+    notes: list[str] = []
+    best_free: int | None = None
+
+    for url in candidates:
+        try:
+            r = session.get(url, timeout=25, allow_redirects=True)
+        except Exception as e:
+            notes.append(f"http-err:{urlparse(url).path}:{e.__class__.__name__}")
+            continue
+
+        ctype = (r.headers.get("content-type") or "").lower()
+        path = urlparse(url).path or "/"
+
+        if r.status_code == 403:
+            notes.append(f"http:{path}:403")
+            continue
+        if r.status_code >= 400:
+            notes.append(f"http:{path}:{r.status_code}")
+            continue
+
+        # JSON seat payloads
+        if "json" in ctype or r.text.lstrip().startswith(("{", "[")):
+            try:
+                data = r.json()
+                got = _extract_free_seats_from_json(data)
+                if got is not None:
+                    best_free = got if best_free is None else max(best_free, got)
+                    notes.append(f"http-json:{path}={got}")
+                else:
+                    notes.append(f"http-json:{path}:unparsed")
+                continue
+            except Exception:
+                pass
+
+        text = r.text or ""
+        # Explicit sold-out markers
+        if re.search(
+            r"\bcomplet\b|plus de places? disponibles?|aucune place disponible|sold.?out",
+            text,
+            re.I,
+        ):
+            if best_free is None:
+                best_free = 0
+            notes.append(f"http-html:{path}:complet")
+            continue
+
+        # Available-seat markers in HTML/JS
+        avail_hits = len(
+            re.findall(
+                r"data-status=[\"']available[\"']|"
+                r"seat[^\"']*available|"
+                r"[\"']status[\"']\s*:\s*[\"']available[\"']|"
+                r"[\"']SeatStatus[\"']\s*:\s*[\"']Available[\"']|"
+                r"place disponible",
+                text,
+                re.I,
+            )
+        )
+        if avail_hits > 0:
+            # Heuristic count — enough to trigger an alert
+            estimate = max(1, min(avail_hits, 50))
+            best_free = estimate if best_free is None else max(best_free, estimate)
+            notes.append(f"http-html:{path}:avail~{estimate}")
+        else:
+            notes.append(f"http-html:{path}:no-avail-marker")
+
+    if best_free is not None:
+        return best_free, "; ".join(notes) or "http probe"
+    return None, "; ".join(notes) or "http probe failed"
+
+
 def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     showtimes = fetch_showtimes(
         session, cfg["film_slug"], cfg["cinema_slug"], cfg["date"]
@@ -624,20 +756,26 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     else:
         detail = f"{detail} booking=(none)"
 
-    # In auto mode, always try the seat map when a booking URL exists — including
-    # sold-out shows, because cancellations can free seats before status flips.
-    need_seats = mode == "seats" or (mode == "auto" and bool(booking_url))
-    if mode == "showtimes":
-        need_seats = False
-
-    if need_seats and booking_url:
-        free_seats, seat_detail = count_free_seats_playwright(
-            booking_url,
-            headless=bool(cfg.get("headless", True)),
-            timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
-            debug_dir=Path(cfg["debug_dir"]) if cfg.get("debug_dir") else None,
-        )
-        detail = f"{detail} | seats: {seat_detail}"
+    # Pathé can keep status='soldout' while one cancelled seat is briefly free.
+    # Always probe the booking link when present (HTTP on phone; Playwright on PC).
+    if booking_url and mode in {"auto", "seats", "showtimes"}:
+        if mode in {"auto", "seats"} and sync_playwright is not None:
+            free_seats, seat_detail = count_free_seats_playwright(
+                booking_url,
+                headless=bool(cfg.get("headless", True)),
+                timeout_ms=int(cfg.get("browser_timeout_ms", 45000)),
+                debug_dir=Path(cfg["debug_dir"]) if cfg.get("debug_dir") else None,
+            )
+            detail = f"{detail} | seats: {seat_detail}"
+            # If Playwright cannot parse, fall back to HTTP markers
+            if free_seats is None:
+                http_free, http_detail = probe_booking_http(session, booking_url)
+                if http_free is not None:
+                    free_seats = http_free
+                detail = f"{detail} | http: {http_detail}"
+        else:
+            free_seats, http_detail = probe_booking_http(session, booking_url)
+            detail = f"{detail} | http: {http_detail}"
     elif mode == "auto" and not booking_url and bookable is False:
         detail = (
             f"{detail} | no booking link while sold out — "
@@ -660,8 +798,88 @@ def is_alertable(result: CheckResult, min_free: int) -> bool:
         return False
     if result.free_seats is not None:
         return result.free_seats >= min_free
-    # Fallback when seat map could not be parsed: alert if session status is bookable
+    # Fallback when seat map could not be parsed: alert if session status is bookable.
+    # Note: Pathé often keeps status='available' even after the room fills again.
     return result.session_bookable is True
+
+
+def watch_key(cfg: dict[str, Any]) -> str:
+    return (
+        f"{cfg.get('film_slug')}|{cfg.get('cinema_slug')}|"
+        f"{cfg.get('date')}|{cfg.get('time')}"
+    )
+
+
+def state_path_for(cfg: dict[str, Any]) -> Path:
+    custom = cfg.get("state_file")
+    if custom:
+        return Path(custom)
+    return Path(__file__).with_name(".monitor_state.json")
+
+
+def load_monitor_state(path: Path) -> dict[str, Any]:
+    try:
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                return data
+    except Exception as e:
+        LOG.warning("Could not read state file %s: %s", path, e)
+    return {}
+
+
+def save_monitor_state(path: Path, state: dict[str, Any]) -> None:
+    try:
+        path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as e:
+        LOG.warning("Could not write state file %s: %s", path, e)
+
+
+def should_send_alert(
+    result: CheckResult,
+    min_free: int,
+    prev: dict[str, Any] | None,
+    transition_only: bool,
+) -> tuple[bool, str]:
+    """Decide whether to notify.
+
+    Pathé often leaves status='available' after a brief free seat was taken.
+    Default behavior alerts only on a rising edge (not-available -> available),
+    or when the estimated free-seat count increases.
+    """
+    alertable = is_alertable(result, min_free)
+    prev = prev or {}
+    prev_alertable = bool(prev.get("alertable"))
+    prev_free = prev.get("free_seats")
+
+    if not alertable:
+        return False, "not alertable"
+
+    if not transition_only:
+        return True, "alertable"
+
+    # Rising edge: was not alertable, now is
+    if not prev_alertable:
+        return True, "transition to available"
+
+    # Free-seat count increased (another cancellation while still 'available')
+    if (
+        result.free_seats is not None
+        and isinstance(prev_free, int)
+        and result.free_seats > prev_free
+    ):
+        return True, f"free_seats increased {prev_free}->{result.free_seats}"
+
+    if (
+        result.free_seats is not None
+        and prev_free is None
+        and result.free_seats >= min_free
+        and prev_alertable
+    ):
+        # We newly learned a concrete free-seat count
+        return True, f"free_seats confirmed={result.free_seats}"
+
+    return False, "already alerted for current available period"
 
 
 def send_telegram(token: str, chat_id: str, text: str) -> None:
@@ -765,6 +983,7 @@ def once_and_print(cfg: dict[str, Any]) -> int:
     if not result.matched:
         return 2
     min_free = int(cfg.get("min_free_seats", 1))
+    # `once` always notifies if currently alertable (manual check).
     if is_alertable(result, min_free):
         notify(cfg, result)
         return 0
@@ -778,37 +997,90 @@ def once_and_print(cfg: dict[str, Any]) -> int:
 
 def loop(cfg: dict[str, Any]) -> int:
     session = build_session()
-    interval = max(60, int(cfg.get("interval_seconds", 60)))
+    interval = max(30, int(cfg.get("interval_seconds", 60)))
     min_free = int(cfg.get("min_free_seats", 1))
     cooldown = int(cfg.get("alert_cooldown_seconds", 300))
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
+    transition_only = bool(cfg.get("alert_on_transition_only", True))
     last_alert_at = 0.0
 
+    state_file = state_path_for(cfg)
+    all_state = load_monitor_state(state_file)
+    key = watch_key(cfg)
+    prev = dict(all_state.get(key) or {})
+    first_sample = key not in all_state
+
     tz = get_timezone(cfg.get("timezone"))
+    if interval < 60:
+        LOG.warning(
+            "Polling every %ss is aggressive — higher chance of Pathé/Akamai 403. "
+            "Prefer 60s; use 30s only for short tests.",
+            interval,
+        )
     LOG.info(
-        "Watching %s @ %s %s %s (every %ss, mode=%s)",
+        "Watching %s @ %s %s %s (every %ss, mode=%s, transition_only=%s)",
         cfg["film_slug"],
         cfg["cinema_slug"],
         cfg["date"],
         cfg["time"],
         interval,
         cfg.get("check_mode", "auto"),
+        transition_only,
     )
+    if prev:
+        LOG.info(
+            "Loaded prior state: alertable=%s free_seats=%s status=%s",
+            prev.get("alertable"),
+            prev.get("free_seats"),
+            prev.get("status"),
+        )
 
     while True:
         now = datetime.now(tz)
         try:
             result = check_once(session, cfg)
             LOG.info(result.detail)
-            if is_alertable(result, min_free):
+            alertable = is_alertable(result, min_free)
+            if first_sample and transition_only:
+                # Remember current Pathé state without replaying a past availability.
+                send, reason = False, "bootstrap current state (no alert)"
+                first_sample = False
+            else:
+                send, reason = should_send_alert(
+                    result, min_free, prev, transition_only=transition_only
+                )
+
+            # Persist current observation (even when not alerting)
+            prev = {
+                "alertable": alertable,
+                "free_seats": result.free_seats,
+                "status": result.showtime.status if result.showtime else None,
+                "bookable": result.session_bookable,
+                "updated_at": now.isoformat(),
+            }
+            all_state[key] = prev
+            save_monitor_state(state_file, all_state)
+
+            if send:
                 if time.time() - last_alert_at >= cooldown:
+                    LOG.info("Sending alert (%s)", reason)
                     notify(cfg, result)
                     last_alert_at = time.time()
+                    prev["last_alert_at"] = last_alert_at
+                    all_state[key] = prev
+                    save_monitor_state(state_file, all_state)
                     if stop_on_alert:
                         LOG.info("Stopping after alert (stop_on_alert=true)")
                         return 0
                 else:
-                    LOG.info("Alert suppressed (cooldown)")
+                    LOG.info("Alert suppressed (cooldown) — %s", reason)
+            elif alertable:
+                LOG.info(
+                    "Still available, no new alert — %s (free_seats=%s bookable=%s)",
+                    reason,
+                    result.free_seats,
+                    result.session_bookable,
+                )
             else:
                 LOG.info(
                     "Still waiting — free_seats=%s bookable=%s (%s)",

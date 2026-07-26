@@ -13,16 +13,17 @@ required_version: ""          # e.g. "vost" or "vf"
 required_tags_any: []         # e.g. ["imax"] — match if any tag is present
 required_tags_all: []         # e.g. ["imax"] — match only if all tags are present
 
-# Poll every N seconds (keep >= 60 to stay polite with Pathé)
+# Poll every N seconds (min 30; 60 is safer long-term, 30 = short aggressive test)
 interval_seconds: 60
 
 # Minimum free seats before alerting
 min_free_seats: 1
 
 # How to check availability:
-# - auto: use showtimes status, then open booking page for a seat count when possible
-# - showtimes: only Pathé showtimes API (session-level status)
-# - seats: always open the booking page and count free seats (Playwright)
+# - auto: showtimes + Playwright seat map + HTTP booking probe (best on PC)
+# - showtimes: showtimes + lightweight HTTP booking probe (best on Termux/phone)
+# - seats: Playwright seat map (+ HTTP fallback)
+# Note: Pathé can keep status=soldout while 1 cancelled seat is briefly free.
 check_mode: auto
 
 # Browser seat check (needed for precise free-seat counts)
@@ -34,6 +35,10 @@ stop_on_alert: false
 
 # Cool-down between identical alerts (seconds)
 alert_cooldown_seconds: 300
+
+# Only alert when availability appears / increases — not while Pathé keeps
+# status='available' after the seat was taken again (recommended: true)
+alert_on_transition_only: true
 
 alerts:
   # Desktop beep / print is always on.
