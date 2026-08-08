@@ -93,6 +93,12 @@ def test_is_alertable_with_seat_count():
     assert monitor.is_alertable(result, 5) is False
 
 
+def test_parse_places_libres():
+    assert monitor.parse_places_libres("Sélectionnez vos places\n0 place libre\nÉcran") == 0
+    assert monitor.parse_places_libres("2 places libres") == 2
+    assert monitor.parse_places_libres("Complet") == 0
+
+
 def test_should_send_alert_only_on_transition():
     show = monitor.Showtime(
         time="2026-08-05 21:00:00",
@@ -104,7 +110,8 @@ def test_should_send_alert_only_on_transition():
         auditorium_capacity=228,
         raw={},
     )
-    available = monitor.CheckResult(
+    # Sticky available + unknown seats must NOT alert (false positives)
+    unknown = monitor.CheckResult(
         matched=True,
         showtime=show,
         session_bookable=True,
@@ -113,16 +120,46 @@ def test_should_send_alert_only_on_transition():
         detail="ok",
         all_showtimes=[show],
     )
-    # First transition into available -> alert
     send, reason = monitor.should_send_alert(
-        available, 1, {"alertable": False, "free_seats": None}, True
+        unknown, 1, {"alertable": False, "free_seats": None}, True, True
+    )
+    assert send is False
+    assert "not confirmed" in reason
+
+    # Explicit 0 place libre must NOT alert
+    zero = monitor.CheckResult(
+        matched=True,
+        showtime=show,
+        session_bookable=True,
+        free_seats=0,
+        booking_url=show.ref_cmd,
+        detail="ok",
+        all_showtimes=[show],
+    )
+    send, reason = monitor.should_send_alert(
+        zero, 1, {"alertable": False, "free_seats": None}, True, True
+    )
+    assert send is False
+
+    # Confirmed free seats -> alert on rising edge
+    free = monitor.CheckResult(
+        matched=True,
+        showtime=show,
+        session_bookable=True,
+        free_seats=2,
+        booking_url=show.ref_cmd,
+        detail="ok",
+        all_showtimes=[show],
+    )
+    send, reason = monitor.should_send_alert(
+        free, 1, {"alertable": False, "free_seats": 0}, True, True
     )
     assert send is True
     assert "transition" in reason
 
-    # Still available (Pathé often keeps this after seats are taken) -> no spam
+    # Still same availability -> no spam
     send, reason = monitor.should_send_alert(
-        available, 1, {"alertable": True, "free_seats": None}, True
+        free, 1, {"alertable": True, "free_seats": 2}, True, True
     )
     assert send is False
     assert "already alerted" in reason
