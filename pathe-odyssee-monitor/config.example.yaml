@@ -40,6 +40,10 @@ alert_cooldown_seconds: 300
 # status='available' after the seat was taken again (recommended: true)
 alert_on_transition_only: true
 
+# Require a parsed free-seat count (e.g. "2 places libres"). If true, ignore
+# sticky showtimes status=available when the map shows "0 place libre".
+require_confirmed_free_seats: true
+
 alerts:
   # Desktop beep / print is always on.
   telegram:

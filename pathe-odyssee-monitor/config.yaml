@@ -3,8 +3,8 @@
 
 film_slug: l-odyssee-projection-imax-70mm-54413
 cinema_slug: cinema-pathe-odysseum
-date: "2026-08-05"
-time: "21:00"
+date: "2026-08-09"
+time: "13:30"
 timezone: Europe/Paris
 
 required_version: ""
@@ -19,6 +19,8 @@ browser_timeout_ms: 45000
 stop_on_alert: false
 alert_cooldown_seconds: 300
 alert_on_transition_only: true
+# Do not trust Pathé status=available alone (often true with "0 place libre")
+require_confirmed_free_seats: true
 
 alerts:
   telegram:

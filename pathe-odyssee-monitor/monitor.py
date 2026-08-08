@@ -579,6 +579,13 @@ def count_free_seats_playwright(
         except Exception:
             pass
 
+        # Pathé shows a clear counter: "0 place libre" / "2 places libres"
+        explicit = parse_places_libres(body_text)
+        if explicit is not None:
+            notes.append(f"ui:places_libres={explicit}")
+            browser.close()
+            return explicit, "; ".join(notes) or "ui places libres"
+
         if debug_dir is not None:
             debug_dir.mkdir(parents=True, exist_ok=True)
             try:
@@ -616,6 +623,9 @@ def count_free_seats_playwright(
         return max(json_counts), "; ".join(notes) or "seat json"
     if dom_count is not None:
         return dom_count, "; ".join(notes) or "seat dom"
+    explicit = parse_places_libres(body_text)
+    if explicit is not None:
+        return explicit, "; ".join(notes + [f"ui:places_libres={explicit}"])
     if re.search(r"\bcomplet\b", body_text, re.I):
         return 0, "booking page shows Complet"
     if re.search(r"plus de places? disponibles?|aucune place", body_text, re.I):
@@ -625,9 +635,32 @@ def count_free_seats_playwright(
         hint += f" — debug saved in {debug_dir}"
     else:
         hint += " — run: python monitor.py debug-seats"
-    # Status monitoring still works even if seat HTML/JSON can't be parsed.
-    hint += " (alerts still fire if Pathé status leaves soldout)"
+    hint += " (no alert unless free seats are confirmed)"
     return None, hint
+
+
+def parse_places_libres(text: str) -> int | None:
+    """Parse Pathé UI strings like '0 place libre' / '3 places libres'."""
+    if not text:
+        return None
+    # Prefer the explicit counter shown above the seat map
+    matches = re.findall(
+        r"(\d+)\s*places?\s*libres?",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if matches:
+        # If several counters appear, take the minimum non-negative (map header)
+        values = [int(m) for m in matches]
+        return min(values)
+    if re.search(
+        r"\bcomplet\b|plus de places?\s+disponibles?|aucune place(?:\s+disponible)?|"
+        r"0\s*place\s*disponible|sold.?out",
+        text,
+        flags=re.IGNORECASE,
+    ):
+        return 0
+    return None
 
 
 def probe_booking_http(
@@ -635,15 +668,20 @@ def probe_booking_http(
 ) -> tuple[int | None, str]:
     """Lightweight booking-page probe (works on Termux; no Playwright).
 
-    Pathé often keeps showtimes status='soldout' even when 1 seat briefly frees.
-    Probing the booking URL/HTML/JSON is the only way to catch that window.
+    Pathé often keeps showtimes status='available' even with 0 seats left.
+    The booking page text 'N place(s) libre(s)' is the reliable signal.
     """
     if not booking_url:
         return None, "no booking url"
 
+    # Keep original URL (may include token); also try clean booking path
     candidates = [booking_url]
-    # Derive a few sibling endpoints from .../V3335S214446/booking
-    base = booking_url.rstrip("/")
+    parsed = urlparse(booking_url)
+    clean = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    if clean not in candidates:
+        candidates.append(clean)
+
+    base = clean.rstrip("/")
     if base.endswith("/booking"):
         root = base[: -len("/booking")]
         candidates.extend(
@@ -657,6 +695,7 @@ def probe_booking_http(
 
     notes: list[str] = []
     best_free: int | None = None
+    saw_explicit_counter = False
 
     for url in candidates:
         try:
@@ -681,7 +720,7 @@ def probe_booking_http(
                 data = r.json()
                 got = _extract_free_seats_from_json(data)
                 if got is not None:
-                    best_free = got if best_free is None else max(best_free, got)
+                    best_free = got if best_free is None else min(best_free, got)
                     notes.append(f"http-json:{path}={got}")
                 else:
                     notes.append(f"http-json:{path}:unparsed")
@@ -690,31 +729,25 @@ def probe_booking_http(
                 pass
 
         text = r.text or ""
-        # Explicit sold-out markers
-        if re.search(
-            r"\bcomplet\b|plus de places? disponibles?|aucune place disponible|sold.?out",
-            text,
-            re.I,
-        ):
-            if best_free is None:
-                best_free = 0
-            notes.append(f"http-html:{path}:complet")
+        explicit = parse_places_libres(text)
+        if explicit is not None:
+            saw_explicit_counter = True
+            best_free = explicit if best_free is None else min(best_free, explicit)
+            notes.append(f"http-html:{path}:places_libres={explicit}")
             continue
 
-        # Available-seat markers in HTML/JS
+        # Available-seat markers in HTML/JS (weaker signal)
         avail_hits = len(
             re.findall(
                 r"data-status=[\"']available[\"']|"
-                r"seat[^\"']*available|"
+                r"seat--available|seat-available|seat\.available|"
                 r"[\"']status[\"']\s*:\s*[\"']available[\"']|"
-                r"[\"']SeatStatus[\"']\s*:\s*[\"']Available[\"']|"
-                r"place disponible",
+                r"[\"']SeatStatus[\"']\s*:\s*[\"']Available[\"']",
                 text,
                 re.I,
             )
         )
-        if avail_hits > 0:
-            # Heuristic count — enough to trigger an alert
+        if avail_hits > 0 and not saw_explicit_counter:
             estimate = max(1, min(avail_hits, 50))
             best_free = estimate if best_free is None else max(best_free, estimate)
             notes.append(f"http-html:{path}:avail~{estimate}")
@@ -793,13 +826,19 @@ def check_once(session: requests.Session, cfg: dict[str, Any]) -> CheckResult:
     )
 
 
-def is_alertable(result: CheckResult, min_free: int) -> bool:
+def is_alertable(
+    result: CheckResult,
+    min_free: int,
+    require_confirmed_free_seats: bool = True,
+) -> bool:
     if not result.matched or not result.showtime:
         return False
     if result.free_seats is not None:
         return result.free_seats >= min_free
-    # Fallback when seat map could not be parsed: alert if session status is bookable.
-    # Note: Pathé often keeps status='available' even after the room fills again.
+    # Pathé often keeps showtimes status='available' while the seat map says
+    # "0 place libre". Never trust status alone unless explicitly allowed.
+    if require_confirmed_free_seats:
+        return False
     return result.session_bookable is True
 
 
@@ -840,6 +879,7 @@ def should_send_alert(
     min_free: int,
     prev: dict[str, Any] | None,
     transition_only: bool,
+    require_confirmed_free_seats: bool = True,
 ) -> tuple[bool, str]:
     """Decide whether to notify.
 
@@ -847,12 +887,18 @@ def should_send_alert(
     Default behavior alerts only on a rising edge (not-available -> available),
     or when the estimated free-seat count increases.
     """
-    alertable = is_alertable(result, min_free)
+    alertable = is_alertable(
+        result, min_free, require_confirmed_free_seats=require_confirmed_free_seats
+    )
     prev = prev or {}
     prev_alertable = bool(prev.get("alertable"))
     prev_free = prev.get("free_seats")
 
     if not alertable:
+        if result.session_bookable and result.free_seats == 0:
+            return False, "status available but 0 place libre"
+        if result.session_bookable and result.free_seats is None:
+            return False, "status available but free seats not confirmed"
         return False, "not alertable"
 
     if not transition_only:
@@ -983,14 +1029,18 @@ def once_and_print(cfg: dict[str, Any]) -> int:
     if not result.matched:
         return 2
     min_free = int(cfg.get("min_free_seats", 1))
+    require_confirmed = bool(cfg.get("require_confirmed_free_seats", True))
     # `once` always notifies if currently alertable (manual check).
-    if is_alertable(result, min_free):
+    if is_alertable(
+        result, min_free, require_confirmed_free_seats=require_confirmed
+    ):
         notify(cfg, result)
         return 0
     LOG.info(
-        "No alert — free_seats=%s session_bookable=%s",
+        "No alert — free_seats=%s session_bookable=%s require_confirmed=%s",
         result.free_seats,
         result.session_bookable,
+        require_confirmed,
     )
     return 1
 
@@ -1002,6 +1052,7 @@ def loop(cfg: dict[str, Any]) -> int:
     cooldown = int(cfg.get("alert_cooldown_seconds", 300))
     stop_on_alert = bool(cfg.get("stop_on_alert", False))
     transition_only = bool(cfg.get("alert_on_transition_only", True))
+    require_confirmed = bool(cfg.get("require_confirmed_free_seats", True))
     last_alert_at = 0.0
 
     state_file = state_path_for(cfg)
@@ -1018,7 +1069,8 @@ def loop(cfg: dict[str, Any]) -> int:
             interval,
         )
     LOG.info(
-        "Watching %s @ %s %s %s (every %ss, mode=%s, transition_only=%s)",
+        "Watching %s @ %s %s %s (every %ss, mode=%s, transition_only=%s, "
+        "require_confirmed_free_seats=%s)",
         cfg["film_slug"],
         cfg["cinema_slug"],
         cfg["date"],
@@ -1026,6 +1078,7 @@ def loop(cfg: dict[str, Any]) -> int:
         interval,
         cfg.get("check_mode", "auto"),
         transition_only,
+        require_confirmed,
     )
     if prev:
         LOG.info(
@@ -1040,14 +1093,20 @@ def loop(cfg: dict[str, Any]) -> int:
         try:
             result = check_once(session, cfg)
             LOG.info(result.detail)
-            alertable = is_alertable(result, min_free)
+            alertable = is_alertable(
+                result, min_free, require_confirmed_free_seats=require_confirmed
+            )
             if first_sample and transition_only:
                 # Remember current Pathé state without replaying a past availability.
                 send, reason = False, "bootstrap current state (no alert)"
                 first_sample = False
             else:
                 send, reason = should_send_alert(
-                    result, min_free, prev, transition_only=transition_only
+                    result,
+                    min_free,
+                    prev,
+                    transition_only=transition_only,
+                    require_confirmed_free_seats=require_confirmed,
                 )
 
             # Persist current observation (even when not alerting)
