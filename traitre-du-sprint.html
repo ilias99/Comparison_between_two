@@ -329,8 +329,8 @@
   var PAIRS = [
     { w: ["Daily", "Rétro"], tag: "Daily" },
     { w: ["DAX", "Power Query"], tag: "Power BI" },
-    // « Mijuscule » est faux exprès.
-    { w: ["Majuscule", "Mijuscule"], tag: "Orthographe" }
+    // « Mijuscule » est faux exprès : c'est toujours le mot du traître.
+    { w: ["Majuscule", "Mijuscule"], tag: "Orthographe", fixed: true }
   ];
   var WORDS = ["tigre", "comete", "pixel", "delta", "nuage", "kanban", "fusee", "bambou", "zebre", "ardoise"];
 
@@ -371,7 +371,7 @@
     for (var p = 0; p < PAIRS.length; p++) pairIdx.push(p);
     var pairOrder = shuffle(pairIdx, rngFor(code + "|pairs"));
     var pair = PAIRS[pairOrder[(round - 1) % PAIRS.length]];
-    var swap = Math.floor(rngFor(code + "|swap|" + round)() * 2);
+    var swap = pair.fixed ? 0 : Math.floor(rngFor(code + "|swap|" + round)() * 2);
     var order = shuffle([0, 1, 2, 3, 4], rngFor(code + "|order|" + round));
     return { liar: liar, groupWord: pair.w[swap], liarWord: pair.w[1 - swap], family: pair.tag, order: order };
   }
