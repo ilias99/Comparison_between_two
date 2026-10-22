@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Le traître du sprint</title>
+  <meta name="description" content="Cinq manches avant la revue. Une paire de mots, un traître qui inverse le sens.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f3ecdf" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#16121f" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23f3ecdf' width='32' height='32'/%3E%3Crect x='8' y='6' width='16' height='20' rx='2' fill='%23241c33'/%3E%3Crect x='11' y='10' width='10' height='2' fill='%23e7a23a'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=IBM+Plex+Mono:wght@500&family=Outfit:wght@400;500;600&display=swap">
+  <style>
+    :root, :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f3ecdf;
+      --surface: #fffaf3;
+      --ink: #241c33;
+      --muted: #5e546b;
+      --line: #e2d5c3;
+      --lamp: #e7a23a;
+      --lamp-soft: rgba(231, 162, 58, 0.18);
+      --traitor: #9f1239;
+      --loyal: #1f6b45;
+      --on-accent: #fffaf3;
+      --focus: #241c33;
+      --font-display: "Fraunces", "Iowan Old Style", Palatino, Georgia, serif;
+      --font-body: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
+      --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #16121f;
+        --surface: #241c30;
+        --ink: #f6f0e6;
+        --muted: #c4b8d0;
+        --line: #3d334c;
+        --lamp: #f0c16a;
+        --lamp-soft: rgba(240, 193, 106, 0.16);
+        --traitor: #ff8aa3;
+        --loyal: #8ed0a8;
+        --on-accent: #241c33;
+        --focus: #f6f0e6;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #16121f;
+      --surface: #241c30;
+      --ink: #f6f0e6;
+      --muted: #c4b8d0;
+      --line: #3d334c;
+      --lamp: #f0c16a;
+      --lamp-soft: rgba(240, 193, 106, 0.16);
+      --traitor: #ff8aa3;
+      --loyal: #8ed0a8;
+      --on-accent: #241c33;
+      --focus: #f6f0e6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(720px 320px at 85% -10%, var(--lamp-soft), transparent 60%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+      padding: 20px max(16px, env(safe-area-inset-right)) 64px max(16px, env(safe-area-inset-left));
+    }
+    button, input, textarea { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    a { color: var(--ink); }
+    .skip {
+      position: absolute;
+      left: 12px;
+      top: -48px;
+      background: var(--ink);
+      color: var(--bg);
+      padding: 8px 12px;
+      border-radius: 8px;
+      z-index: 5;
+    }
+    .skip:focus { top: 12px; }
+    .wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 4px 0 0;
+      font-family: var(--font-display);
+      font-weight: 560;
+      font-size: clamp(36px, 6vw, 60px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+    }
+    .lead { margin: 8px 0 0; max-width: 62ch; color: var(--muted); }
+    .jump { margin: 8px 0 0; font-weight: 600; }
+    .ghost, .btn {
+      border-radius: 999px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 600;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .btn:disabled, .ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+    .rule, .panel, .seat, .pitch, .role, .result {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+    .rule { margin: 0; padding: 12px 14px; border-left: 4px solid var(--lamp); }
+    .rule strong { font-family: var(--font-display); font-size: 18px; font-weight: 560; }
+    .scene { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface); }
+    .scene svg { display: block; width: 100%; height: auto; }
+    .steps { display: flex; flex-wrap: wrap; gap: 8px 0; list-style: none; margin: 0; padding: 0; }
+    .steps li { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; }
+    .steps li.on { color: var(--ink); }
+    .steps li:not(:last-child)::after {
+      content: "";
+      width: 22px;
+      height: 1px;
+      margin: 0 8px;
+      background: var(--line);
+    }
+    .steps span {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .steps li.on span { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+    .status { margin: 0; color: var(--muted); min-height: 1.45em; }
+    .panel { padding: 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+    .panel h2, .role h2, .result h2 { margin: 0; font-family: var(--font-display); font-weight: 560; font-size: 28px; letter-spacing: -0.02em; }
+    .seats, .pitches { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+    .seat, .pitch { padding: 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+    .seat.mine { border-color: var(--ink); }
+    .seat h3, .pitch h3 { margin: 0; font-size: 18px; }
+    .kicker, .phase {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .hint, .wait, .count { margin: 0; color: var(--muted); }
+    .name-edit, .pitch-label { display: flex; flex-direction: column; gap: 4px; width: 100%; font-weight: 600; }
+    input[type="text"], textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-weight: 400;
+    }
+    textarea { min-height: 88px; resize: vertical; }
+    .role { padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+    .role.is-traitor { border-left: 4px solid var(--traitor); }
+    .role.is-loyal { border-left: 4px solid var(--loyal); }
+    .role.is-traitor h2 { color: var(--traitor); }
+    .role.is-loyal h2 { color: var(--loyal); }
+    .pitch p { margin: 0; white-space: pre-wrap; }
+    .pitch.chosen { border-color: var(--ink); }
+    .pitch.traitor-card { border-color: var(--traitor); }
+    .vote-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .result { padding: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; border-left: 4px solid var(--lamp); }
+    .result[data-outcome="team"] { border-left-color: var(--loyal); }
+    .result[data-outcome="traitor"] { border-left-color: var(--traitor); }
+    .guide { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--surface); }
+    .guide summary { cursor: pointer; font-weight: 600; }
+    .guide ol { margin: 10px 0 0; padding-left: 1.2rem; }
+    .guide li + li { margin-top: 6px; }
+    .footer-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+    .combo {
+      margin: 0;
+      font-family: var(--font-display);
+      font-weight: 560;
+      font-size: clamp(32px, 5vw, 52px);
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      text-transform: none;
+    }
+    .combo .word { text-transform: none; }
+    .combo .sep { color: var(--muted); padding: 0 10px; font-family: var(--font-body); font-size: 0.62em; }
+    .scores { display: flex; flex-wrap: wrap; gap: 8px; }
+    .score {
+      margin: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      font-weight: 600;
+    }
+    @media (max-width: 560px) {
+      .top { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#stage">Aller à la table</a>
+  <main class="wrap">
+    <header>
+      <div class="top">
+        <div>
+          <div class="eyebrow">Avant la sprint review</div>
+          <h1>Le traître du sprint</h1>
+          <p class="lead">Cinq paires de mots trop proches. Une personne inverse le sens. Les autres le tiennent droit.</p>
+          <p class="jump"><a href="retro-voile.html">Ensuite : la rétrospective voilier</a></p>
+        </div>
+        <button type="button" class="ghost" id="theme-btn" aria-pressed="false">Thème sombre</button>
+      </div>
+    </header>
+
+    <p class="rule">
+      <strong>Cinq manches, un traître à chaque fois.</strong>
+      La paire de mots est la même pour tout le monde. Quatre personnes gardent le bon sens, une l'inverse. On vote pour la phrase qui sonne faux. L'équipe marque un point par loyal seulement si le traître est seul en tête. Sinon, il marque le point. Chacun est traître une fois. La première manche se joue sur la majuscule et la minuscule. Les quatre autres parlent de données, lisibles par un analyste comme par un ingénieur data.
+    </p>
+
+    <div class="scene" aria-hidden="true">
+      <svg viewBox="0 0 1000 200" xmlns="http://www.w3.org/2000/svg">
+        <rect width="1000" height="200" fill="var(--bg)"/>
+        <circle cx="790" cy="46" r="18" fill="var(--lamp)"/>
+        <circle cx="790" cy="46" r="34" fill="var(--lamp)" opacity="0.18"/>
+        <rect x="782" y="64" width="16" height="28" rx="2" fill="var(--ink)"/>
+        <path d="M760 150 H820" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/>
+        <ellipse cx="470" cy="168" rx="250" ry="16" fill="var(--line)"/>
+        <g>
+          <rect x="250" y="78" width="64" height="84" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+          <rect x="340" y="78" width="64" height="84" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+          <rect x="430" y="78" width="64" height="84" rx="6" fill="var(--ink)"/>
+          <rect x="444" y="96" width="36" height="6" rx="2" fill="var(--lamp)"/>
+          <rect x="520" y="78" width="64" height="84" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+          <rect x="610" y="78" width="64" height="84" rx="6" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
+        </g>
+      </svg>
+    </div>
+
+    <ol class="steps" id="steps">
+      <li data-step="lobby"><span>1</span> S'asseoir</li>
+      <li data-step="alibis"><span>2</span> Écrire</li>
+      <li data-step="vote"><span>3</span> Voter</li>
+      <li data-step="reveal"><span>4</span> Révéler</li>
+    </ol>
+    <p class="status" id="status" role="status">Connexion à la table…</p>
+    <div id="stage"></div>
+
+    <details class="guide">
+      <summary>Comment jouer, avant la revue</summary>
+      <ol>
+        <li>Chacun ouvre cette page sur son écran et prend un siège. Un siège par personne.</li>
+        <li>Une personne lance la manche. Le rôle reste sur ton écran. La paire est affichée pour les cinq.</li>
+        <li>Chacun écrit une phrase. Les loyaux gardent le bon sens. Le traître l'inverse, sans le dire.</li>
+        <li>On vote, on révèle, on passe à la manche suivante. Après la cinquième, on ouvre la rétrospective.</li>
+      </ol>
+    </details>
+
+    <div class="footer-tools">
+      <button type="button" class="ghost" id="restart">Recommencer la partie</button>
+    </div>
+  </main>
+  <noscript><p class="wrap">Cette page a besoin de JavaScript pour jouer.</p></noscript>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
+  <script>
+  (function () {
+    var SEATS = ["p1", "p2", "p3", "p4", "p5"];
+    var MANCHES = [
+      {
+        theme: "La casse",
+        a: "Paris",
+        b: "paris",
+        loyal: "Paris, c'est la ville. paris, ce sont les mises. Explique dans ce sens.",
+        traitor: "Inverse la casse : fais passer paris pour la ville, ou Paris pour des mises.",
+        note: "La majuscule fait la ville. La minuscule fait les mises."
+      },
+      {
+        theme: "Fabriquer la donnée",
+        a: "ETL",
+        b: "ELT",
+        loyal: "L'ETL transforme les données avant de les charger. L'ELT charge d'abord, puis transforme.",
+        traitor: "Inverse : dis que l'ELT transforme avant de charger, et que l'ETL charge d'abord.",
+        note: "ETL : extraire, transformer, charger. ELT : extraire, charger, transformer."
+      },
+      {
+        theme: "Où ranger les données",
+        a: "Lac de données",
+        b: "Entrepôt de données",
+        loyal: "Le lac garde le brut, sous toutes ses formes. L'entrepôt sert des données déjà structurées.",
+        traitor: "Inverse : décris le lac comme un stock déjà prêt pour les tableaux de bord.",
+        note: "Le lac stocke le brut. L'entrepôt sert des données modélisées."
+      },
+      {
+        theme: "Les clés",
+        a: "Clé primaire",
+        b: "Clé étrangère",
+        loyal: "La clé primaire identifie chaque ligne. La clé étrangère pointe vers une autre table.",
+        traitor: "Inverse : présente la clé étrangère comme l'identifiant unique de la ligne.",
+        note: "Primaire : identité de la ligne. Étrangère : lien vers une autre table."
+      },
+      {
+        theme: "Le rythme",
+        a: "Batch",
+        b: "Flux continu",
+        loyal: "Le batch traite des lots à heure fixe. Le flux continu traite les données à mesure qu'elles arrivent.",
+        traitor: "Inverse : décris le batch comme un traitement événement par événement.",
+        note: "Le batch part par lots. Le flux continu arrive au fil de l'eau."
+      }
+    ];
+    var LOCAL_KEY = "traitre-sprint-local";
+    var RETRO_KEY = "retro-voile-fr-local";
+    var firebaseConfig = {
+      apiKey: "AIzaSyA4XCzpsTOur1Hseqi9VS7bGEKPbMSeUKY",
+      authDomain: "test-cbc24.firebaseapp.com",
+      databaseURL: "https://test-cbc24-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "test-cbc24",
+      storageBucket: "test-cbc24.firebasestorage.app",
+      messagingSenderId: "824671676051",
+      appId: "1:824671676051:web:97b3d36acf7a47bcb64f66"
+    };
+
+    var local = { theme: null, priv: {} };
+    var db = null;
+    var myUid = null;
+    var loaded = false;
+    var jeu = null;
+    var peopleNames = {};
+    var myRole = null;
+    var myShare = null;
+    var myManche = null;
+    var revealedId = null;
+    var decodedFor = "";
+    var openedToken = "";
+    var shareSent = "";
+    var draft = "";
+    var claiming = false;
+    var dealing = false;
+    var awarding = false;
+    var pendingRender = false;
+    var advanceKey = "";
+
+    var $ = function (id) { return document.getElementById(id); };
+
+    function el(tag, cls, text) {
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text != null) node.textContent = text;
+      return node;
+    }
+
+    function setStatus(message) {
+      $("status").textContent = message;
+    }
+
+    function warnWrite(err) {
+      var code = err && err.code;
+      if (code === "PERMISSION_DENIED") setStatus("Accès refusé. Publie les règles Firebase, puis recharge la page.");
+      else setStatus("Modification non enregistrée. Réessaie.");
+    }
+
+    function b64(bytes) {
+      var s = "";
+      for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s);
+    }
+
+    function unb64(text) {
+      var s = atob(text);
+      var out = new Uint8Array(s.length);
+      for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+      return out;
+    }
+
+    function pickIndex(n) {
+      var max = Math.floor(256 / n) * n;
+      var buf = new Uint8Array(1);
+      var x = 0;
+      do {
+        crypto.getRandomValues(buf);
+        x = buf[0];
+      } while (x >= max);
+      return x % n;
+    }
+
+    function publicJwk(jwk) {
+      return { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: "RSA-OAEP-256" };
+    }
+
+    function privateJwk(jwk) {
+      return {
+        kty: jwk.kty, n: jwk.n, e: jwk.e, d: jwk.d,
+        p: jwk.p, q: jwk.q, dp: jwk.dp, dq: jwk.dq, qi: jwk.qi,
+        alg: "RSA-OAEP-256"
+      };
+    }
+
+    function loadLocal() {
+      try {
+        var raw = localStorage.getItem(LOCAL_KEY);
+        var parsed = raw ? JSON.parse(raw) : null;
+        if (parsed && typeof parsed === "object") local = parsed;
+      } catch (e) {}
+      if (!local.priv || typeof local.priv !== "object") local.priv = {};
+      if (local.theme !== "light" && local.theme !== "dark") {
+        local.theme = null;
+        try {
+          var retro = JSON.parse(localStorage.getItem(RETRO_KEY) || "null");
+          if (retro && (retro.theme === "light" || retro.theme === "dark")) local.theme = retro.theme;
+        } catch (e2) {}
+      }
+    }
+
+    function saveLocal() {
+      try {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify({ theme: local.theme, priv: local.priv }));
+      } catch (e) {}
+    }
+
+    function applyTheme() {
+      var root = document.documentElement;
+      if (local.theme === "light" || local.theme === "dark") root.setAttribute("data-theme", local.theme);
+      else root.removeAttribute("data-theme");
+      var dark = local.theme === "dark" || (!local.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      var button = $("theme-btn");
+      button.textContent = dark ? "Thème clair" : "Thème sombre";
+      button.setAttribute("aria-pressed", dark ? "true" : "false");
+    }
+
+    function retroHint() {
+      try {
+        var retro = JSON.parse(localStorage.getItem(RETRO_KEY) || "null");
+        if (retro && SEATS.indexOf(retro.activeId) >= 0) return retro.activeId;
+      } catch (e) {}
+      return null;
+    }
+
+    function seatOf(id) {
+      return (jeu && jeu.seats && jeu.seats[id]) || null;
+    }
+
+    function findMySeat() {
+      if (!jeu || !jeu.seats || !myUid) return null;
+      for (var i = 0; i < SEATS.length; i++) {
+        var seat = jeu.seats[SEATS[i]];
+        if (seat && seat.uid === myUid) return SEATS[i];
+      }
+      return null;
+    }
+
+    function displayName(id) {
+      var seat = seatOf(id);
+      var seatName = seat && typeof seat.name === "string" ? seat.name.trim() : "";
+      if (seatName) return seatName.slice(0, 40);
+      var shared = typeof peopleNames[id] === "string" ? peopleNames[id].trim() : "";
+      if (shared) return shared.slice(0, 40);
+      return "Personne " + id.slice(1);
+    }
+
+    function seatReady(id) {
+      var seat = seatOf(id);
+      return !!(seat && seat.uid && seat.pub && seat.pub.n && seat.pub.e);
+    }
+
+    function allReady() {
+      return SEATS.every(seatReady);
+    }
+
+    function allPitches() {
+      return SEATS.every(function (id) {
+        var seat = seatOf(id);
+        return !!(seat && typeof seat.pitch === "string" && seat.pitch.trim());
+      });
+    }
+
+    function validVote(id) {
+      var seat = seatOf(id);
+      var vote = seat && seat.vote;
+      return SEATS.indexOf(vote) >= 0 && vote !== id;
+    }
+
+    function allVotes() {
+      return SEATS.every(validVote);
+    }
+
+    function tally() {
+      var counts = { p1: 0, p2: 0, p3: 0, p4: 0, p5: 0 };
+      SEATS.forEach(function (id) {
+        var seat = seatOf(id);
+        var vote = seat && seat.vote;
+        if (SEATS.indexOf(vote) >= 0 && vote !== id) counts[vote] += 1;
+      });
+      return counts;
+    }
+
+    function votersFor(target) {
+      var names = [];
+      SEATS.forEach(function (id) {
+        var seat = seatOf(id);
+        if (seat && seat.vote === target && id !== target) names.push(displayName(id));
+      });
+      return names;
+    }
+
+    function resetSecrets() {
+      myRole = null;
+      myShare = null;
+      myManche = null;
+      revealedId = null;
+      decodedFor = "";
+      openedToken = "";
+      shareSent = "";
+      advanceKey = "";
+    }
+
+    function renderSoon() {
+      var active = document.activeElement;
+      if (active && (active.id === "pitch" || active.id === "seat-name")) {
+        pendingRender = true;
+        return;
+      }
+      pendingRender = false;
+      render();
+    }
+
+    function paintSteps() {
+      var phase = jeu && jeu.phase === "dealing" ? "alibis" : (jeu && jeu.phase) || "";
+      Array.prototype.forEach.call($("steps").children, function (item) {
+        item.classList.toggle("on", item.getAttribute("data-step") === phase);
+      });
+    }
+
+    function renderSeat(id) {
+      var seat = seatOf(id);
+      var taken = !!(seat && seat.uid);
+      var mine = id === findMySeat();
+      var card = el("article", "seat" + (mine ? " mine" : ""));
+      card.appendChild(el("p", "kicker", mine ? "Ton siège" : (taken ? "Occupé" : "Libre")));
+      card.appendChild(el("h3", null, displayName(id)));
+      if (!taken && retroHint() === id) card.appendChild(el("p", "hint", "C'est ton siège sur la rétro."));
+      if (!taken && jeu.phase === "lobby" && !findMySeat()) {
+        var claim = el("button", "btn", claiming ? "Préparation…" : "Prendre ce siège");
+        claim.type = "button";
+        claim.dataset.claim = id;
+        claim.disabled = claiming;
+        card.appendChild(claim);
+      }
+      if (mine && jeu.phase === "lobby") {
+        var label = el("label", "name-edit");
+        label.appendChild(document.createTextNode("Nom affiché"));
+        var input = document.createElement("input");
+        input.id = "seat-name";
+        input.type = "text";
+        input.maxLength = 40;
+        input.autocomplete = "off";
+        input.value = displayName(id);
+        label.appendChild(input);
+        card.appendChild(label);
+        var leave = el("button", "ghost", "Quitter le siège");
+        leave.type = "button";
+        leave.dataset.release = id;
+        card.appendChild(leave);
+      }
+      return card;
+    }
+
+    function mancheIndex() {
+      return jeu && typeof jeu.manche === "number" ? jeu.manche : 0;
+    }
+
+    function currentDef() {
+      return MANCHES[mancheIndex()] || MANCHES[0];
+    }
+
+    function renderCombo() {
+      var def = currentDef();
+      var box = el("section", "panel");
+      box.id = "combo";
+      box.dataset.manche = String(mancheIndex());
+      box.dataset.a = def.a;
+      box.dataset.b = def.b;
+      box.appendChild(el("p", "kicker", "Manche " + (mancheIndex() + 1) + " sur " + MANCHES.length + " · " + def.theme));
+      var line = el("p", "combo");
+      line.appendChild(el("span", "word", def.a));
+      line.appendChild(el("span", "sep", "/"));
+      line.appendChild(el("span", "word", def.b));
+      box.appendChild(line);
+      return box;
+    }
+
+    function pointsOf(id) {
+      var total = 0;
+      var board = jeu && jeu.scoreboard;
+      if (!board || typeof board !== "object") return 0;
+      Object.keys(board).forEach(function (key) {
+        var row = board[key];
+        if (row && typeof row[id] === "number") total += row[id];
+      });
+      return total;
+    }
+
+    function mancheScored() {
+      var board = jeu && jeu.scoreboard;
+      if (!board) return false;
+      var row = board[mancheIndex()];
+      return !!(row && typeof row === "object");
+    }
+
+    function renderScores() {
+      if (!jeu || !jeu.scoreboard) return null;
+      var row = el("div", "scores");
+      row.id = "scores";
+      SEATS.forEach(function (id) {
+        var n = pointsOf(id);
+        var item = el("p", "score", displayName(id) + " · " + n);
+        item.dataset.seat = id;
+        item.dataset.points = String(n);
+        row.appendChild(item);
+      });
+      return row;
+    }
+
+    function renderRole() {
+      var box = el("section", "role" + (myRole === "t" ? " is-traitor" : myRole === "l" ? " is-loyal" : ""));
+      box.id = "role";
+      if (myRole) box.dataset.role = myRole;
+      box.appendChild(el("p", "kicker", "Visible seulement sur ton écran"));
+      box.appendChild(el("h2", null, myRole === "t" ? "Tu es le traître" : myRole === "l" ? "Tu es loyal" : "Lecture du rôle…"));
+      var def = myManche === mancheIndex() ? MANCHES[myManche] : currentDef();
+      var mission = "Ça ne prend qu'un instant.";
+      if (myRole === "t" && def) mission = def.traitor;
+      if (myRole === "l" && def) mission = def.loyal;
+      box.appendChild(el("p", null, mission));
+      return box;
+    }
+
+    function renderPitchForm() {
+      var form = el("form", "panel");
+      form.id = "pitch-form";
+      var label = el("label", "pitch-label");
+      label.appendChild(document.createTextNode("Ta phrase, sans nommer le piège"));
+      var area = document.createElement("textarea");
+      area.id = "pitch";
+      area.maxLength = 180;
+      area.required = true;
+      area.placeholder = myRole === "t" ? "L'inversion, dite de façon crédible" : "Le bon sens, avec tes mots";
+      var seat = seatOf(findMySeat());
+      if (!draft && seat && seat.pitch && document.activeElement !== area) draft = seat.pitch;
+      area.value = draft;
+      label.appendChild(area);
+      form.appendChild(label);
+      form.appendChild(el("p", "count", (draft.trim().length) + " / 180"));
+      var send = el("button", "btn", seat && seat.pitch ? "Modifier ma phrase" : "Déposer ma phrase");
+      send.type = "submit";
+      send.id = "pitch-send";
+      form.appendChild(send);
+      return form;
+    }
+
+    function renderPitchCard(id, mode) {
+      var seat = seatOf(id);
+      var mine = id === findMySeat();
+      var counts = mode === "reveal" ? tally() : null;
+      var chosen = mode === "vote" && seatOf(findMySeat()) && seatOf(findMySeat()).vote === id;
+      var classes = "pitch" + (chosen ? " chosen" : "") + (mode === "reveal" && revealedId === id ? " traitor-card" : "");
+      var card = el("article", classes);
+      card.appendChild(el("p", "kicker", mine ? "Toi" : "Phrase"));
+      card.appendChild(el("h3", null, displayName(id)));
+      var text = seat && typeof seat.pitch === "string" ? seat.pitch.trim() : "";
+      card.appendChild(el("p", null, text || "Pas encore de phrase."));
+      if (mode === "vote" && findMySeat() && !mine) {
+        var btn = el("button", "btn", chosen ? "Ton vote" : "Voter pour cette phrase");
+        btn.type = "button";
+        btn.dataset.vote = id;
+        btn.setAttribute("aria-pressed", chosen ? "true" : "false");
+        card.appendChild(btn);
+      }
+      if (mode === "vote" && seat && seat.vote && validVote(id)) {
+        card.appendChild(el("p", "hint", mine ? "Ton vote est posé." : "A voté."));
+      }
+      if (mode === "reveal" && counts) {
+        var n = counts[id];
+        card.appendChild(el("p", "hint", n + " vote" + (n > 1 ? "s" : "")));
+        var who = votersFor(id);
+        if (who.length) card.appendChild(el("p", "hint", who.join(", ")));
+        if (revealedId === id) card.appendChild(el("p", "kicker", "Traître"));
+      }
+      return card;
+    }
+
+    function renderResult() {
+      var box = el("section", "result");
+      box.id = "result";
+      if (!revealedId) {
+        var missing = SEATS.filter(function (id) {
+          var seat = seatOf(id);
+          return !(seat && seat.share);
+        });
+        box.appendChild(el("h2", null, "Révélation…"));
+        box.appendChild(el("p", null, missing.length
+          ? "Il manque le fragment de " + missing.map(displayName).join(", ") + ". Chacun garde cette page ouverte."
+          : "Ouverture du secret…"));
+        return box;
+      }
+      var counts = tally();
+      var top = 0;
+      SEATS.forEach(function (id) { if (counts[id] > top) top = counts[id]; });
+      var leaders = SEATS.filter(function (id) { return counts[id] === top; });
+      var team = leaders.length === 1 && leaders[0] === revealedId;
+      box.dataset.traitor = revealedId;
+      box.dataset.outcome = team ? "team" : "traitor";
+      box.appendChild(el("h2", null, team ? "L'équipe a trouvé le traître." : "Le traître s'échappe."));
+      box.appendChild(el("p", null, displayName(revealedId) + " avait le mot de droite, avec " + counts[revealedId] + " vote" + (counts[revealedId] > 1 ? "s" : "") + "."));
+      box.appendChild(el("p", null, currentDef().note));
+      var manche = mancheIndex();
+      if (manche < MANCHES.length - 1) {
+        var next = el("button", "btn", mancheScored() ? "Manche suivante" : "Point en cours…");
+        next.type = "button";
+        next.id = "next";
+        next.dataset.deal = "1";
+        next.disabled = !mancheScored() || dealing;
+        box.appendChild(next);
+      } else if (mancheScored()) {
+        box.appendChild(el("p", null, "C'est la fin des cinq manches."));
+        var link = el("a", "btn", "Ouvrir la rétrospective");
+        link.href = "retro-voile.html";
+        box.appendChild(link);
+      }
+      return box;
+    }
+
+    function render() {
+      paintSteps();
+      var stage = $("stage");
+      stage.textContent = "";
+      if (!loaded) {
+        stage.appendChild(el("p", "wait", "Connexion à la table…"));
+        return;
+      }
+      if (!jeu || !jeu.phase) {
+        var empty = el("section", "panel");
+        empty.appendChild(el("h2", null, "La table n'est pas encore ouverte"));
+        empty.appendChild(el("p", null, "Une personne ouvre la table. Les cinq prennent ensuite un siège, chacune sur son écran."));
+        var open = el("button", "btn", "Ouvrir la table");
+        open.type = "button";
+        open.id = "open-table";
+        open.dataset.open = "1";
+        empty.appendChild(open);
+        stage.appendChild(empty);
+        return;
+      }
+
+      var phase = el("p", "phase");
+      phase.id = "phase";
+      phase.dataset.phase = jeu.phase;
+      var n = mancheIndex() + 1;
+      var labels = { lobby: "Salon", dealing: "Distribution", alibis: "Les phrases", vote: "Le vote", reveal: "La révélation" };
+      phase.textContent = labels[jeu.phase] || jeu.phase;
+      if (jeu.phase !== "lobby") phase.textContent += " · " + n + "/" + MANCHES.length;
+      phase.dataset.manche = String(mancheIndex());
+      stage.appendChild(phase);
+      if (jeu.scoreboard) {
+        var scores = renderScores();
+        if (scores) stage.appendChild(scores);
+      }
+
+      if (jeu.phase === "lobby" || jeu.phase === "dealing") {
+        var seats = el("div", "seats");
+        SEATS.forEach(function (id) { seats.appendChild(renderSeat(id)); });
+        stage.appendChild(seats);
+        var ready = SEATS.filter(seatReady).length;
+        var wait = el("p", "wait", jeu.phase === "dealing"
+          ? "Les rôles sont en cours de distribution."
+          : (ready === 5 ? "Les cinq sont là. Une personne distribue les rôles." : "Sièges prêts : " + ready + " sur 5."));
+        stage.appendChild(wait);
+        if (findMySeat() && jeu.phase === "lobby" && ready === 5) {
+          var deal = el("button", "btn", dealing ? "Distribution…" : "Distribuer les rôles");
+          deal.type = "button";
+          deal.id = "deal";
+          deal.dataset.deal = "1";
+          deal.disabled = dealing;
+          stage.appendChild(deal);
+        }
+        return;
+      }
+
+      stage.appendChild(renderCombo());
+      if (findMySeat()) stage.appendChild(renderRole());
+      if (findMySeat() && jeu.phase === "alibis") stage.appendChild(renderPitchForm());
+
+      if (jeu.phase === "alibis" && allPitches()) {
+        var goVote = el("button", "btn", "Passer au vote");
+        goVote.type = "button";
+        goVote.dataset.advance = "vote";
+        stage.appendChild(goVote);
+      }
+
+      var list = el("div", "pitches");
+      SEATS.forEach(function (id) { list.appendChild(renderPitchCard(id, jeu.phase === "reveal" ? "reveal" : jeu.phase === "vote" ? "vote" : "read")); });
+      stage.appendChild(list);
+
+      if (jeu.phase === "vote") {
+        var voted = SEATS.filter(validVote).length;
+        stage.appendChild(el("p", "wait", voted === 5 ? "Les cinq votes sont posés." : "Votes posés : " + voted + " sur 5."));
+        if (allVotes()) {
+          var goReveal = el("button", "btn", "Révéler");
+          goReveal.type = "button";
+          goReveal.dataset.advance = "reveal";
+          stage.appendChild(goReveal);
+        }
+      }
+
+      if (jeu.phase === "reveal") stage.appendChild(renderResult());
+    }
+
+    function syncDraft() {
+      var active = document.activeElement;
+      if (active && active.id === "pitch") return;
+      if (!jeu || jeu.phase === "lobby" || jeu.phase === "dealing") {
+        draft = "";
+        return;
+      }
+      var mine = findMySeat();
+      var seat = mine && seatOf(mine);
+      if (seat && typeof seat.pitch === "string") draft = seat.pitch;
+      else draft = "";
+    }
+
+    function scheduleAdvance(from, to) {
+      var key = mancheIndex() + ":" + from + ">" + to;
+      if (advanceKey === key) return;
+      if (!jeu || jeu.phase !== from) return;
+      advanceKey = key;
+      db.ref("board/jeu/phase").transaction(function (cur) {
+        if (cur === from) return to;
+        return;
+      }).then(function (res) {
+        if (!res.committed && advanceKey === key) advanceKey = "";
+      }).catch(function () {
+        if (advanceKey === key) advanceKey = "";
+      });
+    }
+
+    function readEnvelope() {
+      var mine = findMySeat();
+      var seat = mine && seatOf(mine);
+      var env = seat && seat.env;
+      var priv = mine && local.priv[mine];
+      if (!env || !priv) {
+        if (!env && (myRole || myShare)) {
+          myRole = null;
+          myShare = null;
+          myManche = null;
+          decodedFor = "";
+        }
+        return Promise.resolve();
+      }
+      if (decodedFor === env && myShare) return Promise.resolve();
+      var target = env;
+      return crypto.subtle.importKey("jwk", priv, { name: "RSA-OAEP", hash: "SHA-256" }, false, ["decrypt"])
+        .then(function (key) {
+          return crypto.subtle.decrypt({ name: "RSA-OAEP" }, key, unb64(target));
+        })
+        .then(function (buf) {
+          var current = findMySeat();
+          var still = current && seatOf(current);
+          if (!still || still.env !== target) return;
+          var data = JSON.parse(new TextDecoder().decode(new Uint8Array(buf)));
+          var expected = mancheIndex();
+          if ((data.r !== "t" && data.r !== "l") || typeof data.s !== "string") throw new Error("role");
+          if (typeof data.n === "number" && data.n !== expected) return;
+          myRole = data.r;
+          myShare = data.s;
+          myManche = typeof data.n === "number" ? data.n : expected;
+          decodedFor = target;
+          renderSoon();
+          return publishShare();
+        })
+        .catch(function (err) {
+          console.error(err);
+          setStatus("Ton rôle secret n'a pas pu être lu. Recharge la page sans effacer les données du site.");
+        });
+    }
+
+    function publishShare() {
+      var mine = findMySeat();
+      if (!jeu || jeu.phase !== "reveal" || !mine || !myShare) return Promise.resolve();
+      var remote = seatOf(mine) && seatOf(mine).share;
+      if (remote === myShare) {
+        shareSent = myShare;
+        return openSealed();
+      }
+      if (shareSent === myShare) return openSealed();
+      shareSent = myShare;
+      return db.ref("board/jeu/seats/" + mine + "/share").set(myShare).then(openSealed).catch(function (err) {
+        shareSent = "";
+        warnWrite(err);
+      });
+    }
+
+    function openSealed() {
+      if (!jeu || jeu.phase !== "reveal" || !jeu.sealed || revealedId) return Promise.resolve();
+      var shares = [];
+      for (var i = 0; i < SEATS.length; i++) {
+        var share = seatOf(SEATS[i]) && seatOf(SEATS[i]).share;
+        if (!share) return Promise.resolve();
+        shares.push(share);
+      }
+      var token = jeu.sealed + "|" + shares.join(",");
+      if (openedToken === token) return Promise.resolve();
+      openedToken = token;
+      var parts = shares.map(unb64);
+      var keyBytes = new Uint8Array(16);
+      for (var s = 0; s < parts.length; s++) {
+        if (parts[s].length !== 16) return Promise.reject(new Error("share"));
+        for (var b = 0; b < 16; b++) keyBytes[b] ^= parts[s][b];
+      }
+      var blob = unb64(jeu.sealed);
+      var iv = blob.slice(0, 12);
+      var ct = blob.slice(12);
+      return crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["decrypt"])
+        .then(function (key) {
+          return crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ct);
+        })
+        .then(function (buf) {
+          var id = new TextDecoder().decode(buf);
+          if (SEATS.indexOf(id) < 0) throw new Error("id");
+          revealedId = id;
+          renderSoon();
+          award();
+        })
+        .catch(function (err) {
+          openedToken = "";
+          console.error(err);
+          setStatus("La révélation a échoué. Recommence la partie.");
+        });
+    }
+
+    function writeEnvelopes(attempt, expectedManche) {
+      return db.ref("board/jeu").once("value").then(function (snap) {
+        var current = snap.val() || {};
+        if (current.phase === "alibis" && current.sealed) return null;
+        if (current.phase !== "dealing") {
+          if ((attempt || 0) < 5) {
+            return new Promise(function (resolve, reject) {
+              setTimeout(function () {
+                writeEnvelopes((attempt || 0) + 1, expectedManche).then(resolve, reject);
+              }, 200);
+            });
+          }
+          return null;
+        }
+        var mancheNow = typeof current.manche === "number" ? current.manche : 0;
+        if (typeof expectedManche === "number" && mancheNow !== expectedManche) {
+          if ((attempt || 0) < 5) {
+            return new Promise(function (resolve, reject) {
+              setTimeout(function () {
+                writeEnvelopes((attempt || 0) + 1, expectedManche).then(resolve, reject);
+              }, 200);
+            });
+          }
+          return null;
+        }
+        var missing = SEATS.some(function (id) {
+          var seat = current.seats && current.seats[id];
+          return !(seat && seat.pub && seat.pub.n && seat.pub.e);
+        });
+        if (missing) {
+          return db.ref("board/jeu/phase").set("lobby").then(function () {
+            setStatus("Un siège n'est plus prêt. On reste dans le salon.");
+          });
+        }
+        var manche = typeof current.manche === "number" ? current.manche : 0;
+        var used = [];
+        if (current.used && typeof current.used === "object") {
+          Object.keys(current.used).forEach(function (key) {
+            if (SEATS.indexOf(current.used[key]) >= 0) used.push(current.used[key]);
+          });
+        }
+        var pool = SEATS.filter(function (id) { return used.indexOf(id) < 0; });
+        if (!pool.length) pool = SEATS.slice();
+        var traitor = pool[pickIndex(pool.length)];
+        var secret = crypto.getRandomValues(new Uint8Array(16));
+        var shares = [];
+        var last = new Uint8Array(secret);
+        for (var i = 0; i < 4; i++) {
+          var part = crypto.getRandomValues(new Uint8Array(16));
+          shares.push(part);
+          for (var b = 0; b < 16; b++) last[b] ^= part[b];
+        }
+        shares.push(last);
+        var iv = crypto.getRandomValues(new Uint8Array(12));
+        return crypto.subtle.importKey("raw", secret, "AES-GCM", false, ["encrypt"]).then(function (aes) {
+          return crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, aes, new TextEncoder().encode(traitor));
+        }).then(function (cipher) {
+          var sealedBytes = new Uint8Array(iv.length + cipher.byteLength);
+          sealedBytes.set(iv, 0);
+          sealedBytes.set(new Uint8Array(cipher), iv.length);
+          var updates = { phase: "alibis", sealed: b64(sealedBytes) };
+          var chain = Promise.resolve();
+          SEATS.forEach(function (id, index) {
+            chain = chain.then(function () {
+              var payload = JSON.stringify({ r: id === traitor ? "t" : "l", s: b64(shares[index]), n: manche });
+              return crypto.subtle.importKey(
+                "jwk",
+                current.seats[id].pub,
+                { name: "RSA-OAEP", hash: "SHA-256" },
+                false,
+                ["encrypt"]
+              ).then(function (pub) {
+                return crypto.subtle.encrypt({ name: "RSA-OAEP" }, pub, new TextEncoder().encode(payload));
+              }).then(function (env) {
+                updates["seats/" + id + "/env"] = b64(new Uint8Array(env));
+              });
+            });
+          });
+          return chain.then(function () {
+            return db.ref("board/jeu").update(updates);
+          });
+        });
+      });
+    }
+
+    function award() {
+      if (awarding || !revealedId || !jeu || jeu.phase !== "reveal") return;
+      if (mancheScored()) return;
+      awarding = true;
+      var manche = mancheIndex();
+      var traitorId = revealedId;
+      var team = false;
+      var counts = tally();
+      var top = 0;
+      SEATS.forEach(function (id) { if (counts[id] > top) top = counts[id]; });
+      var leaders = SEATS.filter(function (id) { return counts[id] === top; });
+      team = leaders.length === 1 && leaders[0] === traitorId;
+      db.ref("board/jeu/scored").transaction(function (cur) {
+        if (cur === manche) return;
+        if (typeof cur === "number" && cur > manche) return;
+        return manche;
+      }).then(function (res) {
+        if (!res.committed) return null;
+        var cell = {};
+        SEATS.forEach(function (id) {
+          var add = 0;
+          if (team && id !== traitorId) add = 1;
+          if (!team && id === traitorId) add = 1;
+          cell[id] = add;
+        });
+        var update = {};
+        update["scoreboard/" + manche] = cell;
+        update["used/" + manche] = traitorId;
+        return db.ref("board/jeu").update(update);
+      }).catch(function (err) {
+        console.error(err);
+      }).then(function () {
+        awarding = false;
+      });
+    }
+
+    function tryDeal() {
+      if (dealing || !findMySeat() || !jeu) return;
+      var manche = mancheIndex();
+      var fromLobby = jeu.phase === "lobby" && allReady();
+      var fromReveal = jeu.phase === "reveal" && mancheScored() && manche < MANCHES.length - 1;
+      if (!fromLobby && !fromReveal) return;
+      if (!window.crypto || !crypto.subtle) {
+        setStatus("Ouvre la page en https pour distribuer les rôles secrets.");
+        return;
+      }
+      var nextIndex = fromLobby ? 0 : manche + 1;
+      dealing = true;
+      renderSoon();
+      setStatus("Distribution des rôles…");
+      db.ref("board/jeu/phase").transaction(function (cur) {
+        if (fromLobby && cur === "lobby") return "dealing";
+        if (fromReveal && cur === "reveal") return "dealing";
+        return;
+      }).then(function (res) {
+        if (!res.committed) return null;
+        var clears = { manche: nextIndex, sealed: null };
+        SEATS.forEach(function (id) {
+          clears["seats/" + id + "/pitch"] = null;
+          clears["seats/" + id + "/vote"] = null;
+          clears["seats/" + id + "/share"] = null;
+          clears["seats/" + id + "/env"] = null;
+        });
+        return db.ref("board/jeu").update(clears).then(function () { return writeEnvelopes(0, nextIndex); });
+      }).then(function () {
+        if ($("status").textContent === "Distribution des rôles…") setStatus("Les rôles sont distribués. Chacun lit le sien.");
+      }).catch(function (err) {
+        console.error(err);
+        setStatus("La distribution a échoué. Recommence la partie.");
+      }).then(function () {
+        dealing = false;
+        renderSoon();
+      });
+    }
+
+    function claim(seatId) {
+      if (claiming || findMySeat() || !myUid || !jeu || jeu.phase !== "lobby") return;
+      if (!window.crypto || !crypto.subtle) {
+        setStatus("Ouvre la page en https pour prendre un siège.");
+        return;
+      }
+      claiming = true;
+      renderSoon();
+      setStatus("Préparation de ton siège…");
+      crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+        true,
+        ["encrypt", "decrypt"]
+      ).then(function (pair) {
+        return Promise.all([
+          crypto.subtle.exportKey("jwk", pair.publicKey),
+          crypto.subtle.exportKey("jwk", pair.privateKey)
+        ]);
+      }).then(function (keys) {
+        var pub = publicJwk(keys[0]);
+        var priv = privateJwk(keys[1]);
+        return db.ref("board/people/" + seatId + "/name").once("value").then(function (nameSnap) {
+          var existing = nameSnap.val();
+          var name = typeof existing === "string" && existing.trim() ? existing.trim().slice(0, 40) : displayName(seatId);
+          return { pub: pub, priv: priv, name: name };
+        });
+      }).then(function (ready) {
+        var pub = ready.pub;
+        var priv = ready.priv;
+        var name = ready.name;
+        return db.ref("board/jeu/seats/" + seatId).transaction(function (cur) {
+          if (cur && cur.uid && cur.uid !== myUid) return;
+          var next = cur && typeof cur === "object" ? Object.assign({}, cur) : {};
+          next.uid = myUid;
+          next.name = name;
+          next.pub = pub;
+          return next;
+        }).then(function (res) {
+          if (!res.committed) {
+            setStatus("Ce siège vient d'être pris. Choisis-en un autre.");
+            return;
+          }
+          local.priv[seatId] = priv;
+          saveLocal();
+          return db.ref("board/people/" + seatId + "/name").set(name);
+        });
+      }).catch(function (err) {
+        console.error(err);
+        setStatus("Impossible de prendre ce siège. Réessaie.");
+      }).then(function () {
+        claiming = false;
+        renderSoon();
+      });
+    }
+
+    function releaseSeat() {
+      var mine = findMySeat();
+      if (!mine || !jeu || jeu.phase !== "lobby") return;
+      db.ref("board/jeu/seats/" + mine).transaction(function (cur) {
+        if (!cur || cur.uid !== myUid) return;
+        var next = Object.assign({}, cur);
+        next.uid = null;
+        next.pub = null;
+        return next;
+      }).then(function () {
+        delete local.priv[mine];
+        saveLocal();
+        myRole = null;
+        myShare = null;
+      }).catch(warnWrite);
+    }
+
+    function saveName(value) {
+      var mine = findMySeat();
+      if (!mine) return;
+      var name = String(value || "").trim().slice(0, 40);
+      if (!name) return;
+      var seat = seatOf(mine);
+      if (seat && seat.name === name) return;
+      db.ref("board/jeu/seats/" + mine + "/name").set(name).catch(warnWrite);
+      db.ref("board/people/" + mine + "/name").set(name).catch(warnWrite);
+    }
+
+    function savePitch() {
+      var mine = findMySeat();
+      if (!mine || !jeu || jeu.phase !== "alibis") return;
+      var field = $("pitch");
+      var text = String((field && field.value) || draft || "").trim().slice(0, 180);
+      if (!text) return;
+      draft = text;
+      db.ref("board/jeu/seats/" + mine + "/pitch").set(text).catch(warnWrite);
+    }
+
+    function castVote(target) {
+      var mine = findMySeat();
+      if (!mine || mine === target || !jeu || jeu.phase !== "vote") return;
+      if (SEATS.indexOf(target) < 0) return;
+      db.ref("board/jeu/seats/" + mine + "/vote").set(target).catch(warnWrite);
+    }
+
+    function openTable() {
+      if (!db) return;
+      db.ref("board/jeu").transaction(function (cur) {
+        if (cur && cur.phase) return;
+        return { phase: "lobby", round: Date.now() };
+      }).catch(warnWrite);
+    }
+
+    function restart() {
+      if (!db) return;
+      if (!window.confirm("Effacer cette partie pour tout le monde ? Les cartes de la rétrospective restent en place.")) return;
+      resetSecrets();
+      draft = "";
+      db.ref("board/jeu").remove().then(function () {
+        setStatus("Partie effacée. La rétrospective n'a pas bougé.");
+      }).catch(warnWrite);
+    }
+
+    function onJeu(val) {
+      var previousRound = jeu && jeu.round;
+      var previousManche = jeu ? mancheIndex() : null;
+      jeu = val;
+      var manche = jeu ? mancheIndex() : null;
+      if (!jeu || (previousRound && jeu.round !== previousRound) || (jeu && previousManche !== null && manche !== previousManche)) {
+        resetSecrets();
+        draft = "";
+      }
+      if (jeu && (jeu.phase === "dealing" || jeu.phase === "lobby")) resetSecrets();
+      if (!jeu) draft = "";
+      loaded = true;
+      syncDraft();
+      renderSoon();
+      if (!$("status").dataset.live) {
+        $("status").dataset.live = "1";
+        setStatus("Table partagée. Chacun ouvre cette page et prend un siège différent.");
+      }
+      readEnvelope();
+      publishShare();
+      openSealed();
+      if (revealedId) award();
+    }
+
+    function connect() {
+      if (!window.firebase) {
+        setStatus("Firebase n'a pas pu se charger. Recharge la page.");
+        return;
+      }
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      var listening = false;
+      firebase.auth().onAuthStateChanged(function (user) {
+        if (!user || listening) return;
+        listening = true;
+        myUid = user.uid;
+        db.ref("board/people").on("value", function (snap) {
+          var raw = snap.val() || {};
+          peopleNames = {};
+          SEATS.forEach(function (id) {
+            if (raw[id] && typeof raw[id].name === "string") peopleNames[id] = raw[id].name;
+          });
+          if (loaded) renderSoon();
+        });
+        db.ref("board/jeu").on("value", function (snap) {
+          try {
+            onJeu(snap.val());
+          } catch (err) {
+            console.error(err);
+            setStatus("La partie n'a pas pu s'afficher. Recharge la page.");
+          }
+        }, function () {
+          loaded = false;
+          setStatus("Accès refusé. Vérifie les règles Firebase, puis recharge la page.");
+        });
+      });
+      firebase.auth().signInAnonymously().catch(function (err) {
+        var code = err && err.code;
+        if (code === "auth/operation-not-allowed") setStatus("Dans Firebase, active la connexion Anonyme, puis recharge la page.");
+        else if (code === "auth/unauthorized-domain") setStatus("Ajoute le domaine Netlify dans Firebase : Authentication, Settings, Authorized domains.");
+        else setStatus("Connexion impossible. Réessaie dans un instant.");
+      });
+    }
+
+    $("theme-btn").addEventListener("click", function () {
+      var dark = local.theme === "dark" || (!local.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      local.theme = dark ? "light" : "dark";
+      saveLocal();
+      applyTheme();
+    });
+
+    $("restart").addEventListener("click", restart);
+
+    var stage = $("stage");
+    stage.addEventListener("click", function (event) {
+      var btn = event.target.closest("button");
+      if (!btn) return;
+      if (btn.dataset.open) openTable();
+      else if (btn.dataset.claim) claim(btn.dataset.claim);
+      else if (btn.dataset.release) releaseSeat();
+      else if (btn.dataset.deal) tryDeal();
+      else if (btn.dataset.vote) castVote(btn.dataset.vote);
+      else if (btn.dataset.advance === "vote") scheduleAdvance("alibis", "vote");
+      else if (btn.dataset.advance === "reveal") scheduleAdvance("vote", "reveal");
+    });
+    stage.addEventListener("submit", function (event) {
+      if (event.target.id !== "pitch-form") return;
+      event.preventDefault();
+      savePitch();
+    });
+    stage.addEventListener("input", function (event) {
+      if (event.target.id !== "pitch") return;
+      draft = event.target.value;
+      var count = stage.querySelector(".count");
+      if (count) count.textContent = draft.trim().length + " / 180";
+    });
+    stage.addEventListener("focusout", function (event) {
+      if (event.target.id === "seat-name") saveName(event.target.value);
+      if (pendingRender) renderSoon();
+    });
+
+    loadLocal();
+    applyTheme();
+    render();
+    connect();
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+      if (!local.theme) applyTheme();
+    });
+  })();
+  </script>
+</body>
+</html>

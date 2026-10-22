@@ -141,6 +141,8 @@
     .sprint:hover, .sprint:focus { border-bottom-color: var(--line); }
     .sprint::placeholder { color: var(--muted); opacity: 0.55; }
     .date { margin: 6px 0 0; color: var(--muted); }
+    .jump { margin: 10px 0 0; }
+    .jump a { color: var(--ink); font-weight: 600; }
     .steps { display: flex; flex-wrap: wrap; gap: 8px 0; list-style: none; margin: 14px 0 0; padding: 0; }
     .steps li { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 500; }
     .steps li:not(:last-child)::after {
@@ -382,7 +384,7 @@
     }
     @media print {
       body { background: white; padding: 0; }
-      .skip, .ghost, .add, .act-add, .tools, .toolbar, .footer-tools, .backup, .guide, .rule { display: none !important; }
+      .skip, .ghost, .add, .act-add, .tools, .toolbar, .footer-tools, .backup, .guide, .rule, .jump { display: none !important; }
       .scene, .lane, .actions, .card, .act { break-inside: avoid; }
       .sprint { border: 0; }
     }
@@ -399,6 +401,7 @@
             <input id="sprint" class="sprint" type="text" maxlength="80" placeholder="Nom du sprint" aria-label="Nom du sprint" autocomplete="off">
           </h1>
           <p class="date" id="date"></p>
+          <p class="jump"><a href="traitre-du-sprint.html">Avant la revue : le traître du sprint</a></p>
         </div>
         <button type="button" class="ghost" id="theme-btn" aria-pressed="false">Thème sombre</button>
       </div>
@@ -532,7 +535,7 @@
 
     <details class="backup">
       <summary>Sauvegarde du tableau</summary>
-      <p>Le tableau est partagé en ligne. Téléchargez une sauvegarde pour en garder une copie, ou pour le restaurer.</p>
+      <p>Le tableau est partagé en ligne. Téléchargez une sauvegarde pour en garder une copie, ou pour le restaurer. Cette copie ne contient pas la partie de traître, et la restauration ne l'efface pas.</p>
       <div class="backup-row">
         <button type="button" class="ghost" id="save-json">Télécharger la sauvegarde</button>
         <label class="file-btn">Restaurer
@@ -768,11 +771,12 @@
       state.actions.forEach(function (action) {
         actions[action.id] = { text: action.text, owner: action.owner || "", done: !!action.done, t: action.t };
       });
-      return db.ref("board").set({
+      var cards = cardsToMap(state.cards);
+      return db.ref("board").update({
         sprint: state.sprint || "",
         people: people,
-        cards: cardsToMap(state.cards),
-        actions: actions
+        cards: Object.keys(cards).length ? cards : null,
+        actions: Object.keys(actions).length ? actions : null
       });
     }
 
