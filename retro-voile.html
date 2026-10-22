@@ -413,7 +413,7 @@
       <strong>Cinq personnes, deux votes par bloc.</strong>
       Chacune pose 2 votes dans le vent, 2 dans les ancres, 2 dans les rochers et 2 dans l'île.
       Les deux votes peuvent aller sur la même carte, ou sur deux cartes différentes.
-      Tout se passe sur cette page : on choisit son nom, on vote, puis on passe à la personne suivante.
+      Chacun ouvre cette page, choisit son nom et vote. Les cinq voient les mêmes cartes.
     </p>
 
     <div class="scene" aria-hidden="true">
@@ -519,7 +519,7 @@
       <ol>
         <li>Cinq minutes de silence : chacun ajoute ses cartes dans les quatre blocs.</li>
         <li>On lit les cartes à voix haute et on supprime les doublons.</li>
-        <li>Chaque personne pose 2 votes par bloc. On change le nom en haut avant de passer le clavier.</li>
+        <li>Chaque personne ouvre la page, choisit son nom, et pose 2 votes par bloc. Un nom différent par personne.</li>
         <li>On discute des cartes en tête, puis on écrit les actions avec un responsable.</li>
       </ol>
     </details>
@@ -532,7 +532,7 @@
 
     <details class="backup">
       <summary>Sauvegarde du tableau</summary>
-      <p>Les cartes restent dans ce navigateur. Téléchargez une sauvegarde pour continuer sur un autre ordinateur.</p>
+      <p>Le tableau est partagé en ligne. Téléchargez une sauvegarde pour en garder une copie, ou pour le restaurer.</p>
       <div class="backup-row">
         <button type="button" class="ghost" id="save-json">Télécharger la sauvegarde</button>
         <label class="file-btn">Restaurer
@@ -542,6 +542,9 @@
     </details>
   </main>
   <noscript><p class="noscript wrap">Cette page a besoin de JavaScript pour ajouter des cartes et voter.</p></noscript>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
 
   <script>
   (function () {
@@ -554,12 +557,23 @@
     ];
     var VOTES_PER_LANE = 2;
     var PEOPLE = ["p1", "p2", "p3", "p4", "p5"];
-    var STORAGE_KEY = "retro-voile-fr-v1";
+    var LOCAL_KEY = "retro-voile-fr-local";
+    var firebaseConfig = {
+      apiKey: "AIzaSyA4XCzpsTOur1Hseqi9VS7bGEKPbMSeUKY",
+      authDomain: "test-cbc24.firebaseapp.com",
+      databaseURL: "https://test-cbc24-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "test-cbc24",
+      storageBucket: "test-cbc24.firebasestorage.app",
+      messagingSenderId: "824671676051",
+      appId: "1:824671676051:web:97b3d36acf7a47bcb64f66"
+    };
 
     var state = emptyState();
     var editLock = false;
+    var boardReady = false;
     var inputs = {};
     var lists = {};
+    var db = null;
 
     var $ = function (id) { return document.getElementById(id); };
 
@@ -648,12 +662,118 @@
       $("status").textContent = message;
     }
 
-    function saveState() {
+    function saveLocal() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-        setStatus("Impossible d'enregistrer dans ce navigateur.");
+        localStorage.setItem(LOCAL_KEY, JSON.stringify({ activeId: state.activeId, theme: state.theme }));
+      } catch (e) {}
+    }
+
+    function loadLocal() {
+      try {
+        var raw = localStorage.getItem(LOCAL_KEY);
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        if (data && PEOPLE.indexOf(data.activeId) >= 0) state.activeId = data.activeId;
+        if (data && (data.theme === "light" || data.theme === "dark")) state.theme = data.theme;
+      } catch (e) {}
+    }
+
+    function ensureReady() {
+      if (boardReady && db) return true;
+      setStatus("Connexion au tableau partagé…");
+      return false;
+    }
+
+    function warnWrite(err) {
+      var code = err && (err.code || "");
+      if (code === "PERMISSION_DENIED") setStatus("Accès refusé. Publie les règles Firebase, puis recharge la page.");
+      else setStatus("Modification non enregistrée. Réessaie.");
+    }
+
+    function parseCards(raw) {
+      var cards = [];
+      if (!raw || typeof raw !== "object") return cards;
+      Object.keys(raw).forEach(function (id) {
+        var card = raw[id];
+        if (!card || !laneById(card.lane) || typeof card.text !== "string" || !card.text.trim()) return;
+        var votes = {};
+        if (card.votes && typeof card.votes === "object") {
+          PEOPLE.forEach(function (pid) {
+            if (typeof card.votes[pid] === "number") votes[pid] = card.votes[pid];
+          });
+        }
+        cards.push({
+          id: id,
+          lane: card.lane,
+          text: card.text.trim().slice(0, 240),
+          t: Number(card.t) || 0,
+          votes: votes
+        });
+      });
+      return cards;
+    }
+
+    function parseActions(raw) {
+      var actions = [];
+      if (!raw || typeof raw !== "object") return actions;
+      Object.keys(raw).forEach(function (id) {
+        var action = raw[id];
+        if (!action || typeof action.text !== "string" || !action.text.trim()) return;
+        actions.push({
+          id: id,
+          text: action.text.trim().slice(0, 200),
+          owner: String(action.owner || "").trim().slice(0, 40),
+          done: !!action.done,
+          t: Number(action.t) || 0
+        });
+      });
+      return actions;
+    }
+
+    function cardsToMap(cards) {
+      var out = {};
+      cards.forEach(function (card) {
+        out[card.id] = { lane: card.lane, text: card.text, t: card.t, votes: card.votes || {} };
+      });
+      return out;
+    }
+
+    function applyRemote(data) {
+      data = data || {};
+      var sprintField = $("sprint");
+      var nameField = $("person-name");
+      if (document.activeElement !== sprintField) state.sprint = typeof data.sprint === "string" ? data.sprint.slice(0, 80) : "";
+      if (data.people && typeof data.people === "object") {
+        state.people.forEach(function (person) {
+          if (document.activeElement === nameField && person.id === state.activeId) return;
+          var remote = data.people[person.id];
+          if (remote && typeof remote.name === "string" && remote.name.trim()) person.name = remote.name.trim().slice(0, 40);
+        });
       }
+      state.cards = parseCards(data.cards);
+      clampVotes(state.cards);
+      state.actions = parseActions(data.actions);
+      if (document.activeElement !== sprintField && sprintField) sprintField.value = state.sprint;
+      applyTheme();
+      renderBudget();
+      if (!editLock) renderCards();
+      var ownerFocused = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("owner");
+      if (!ownerFocused) renderActions();
+    }
+
+    function publishBoard() {
+      var people = {};
+      state.people.forEach(function (person) { people[person.id] = { name: person.name }; });
+      var actions = {};
+      state.actions.forEach(function (action) {
+        actions[action.id] = { text: action.text, owner: action.owner || "", done: !!action.done, t: action.t };
+      });
+      return db.ref("board").set({
+        sprint: state.sprint || "",
+        people: people,
+        cards: cardsToMap(state.cards),
+        actions: actions
+      });
     }
 
     function clampVotes(cards) {
@@ -730,16 +850,6 @@
         });
       }
       return next;
-    }
-
-    function loadState() {
-      try {
-        var raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return emptyState();
-        return sanitize(JSON.parse(raw));
-      } catch (e) {
-        return emptyState();
-      }
     }
 
     function sameText(a, b) {
@@ -934,9 +1044,9 @@
               return;
             }
             state.cards = state.cards.filter(function (item) { return item.id !== card.id; });
-            saveState();
             renderCards();
             renderBudget();
+            db.ref("board/cards/" + card.id).remove().catch(warnWrite);
             setStatus("Carte supprimée.");
           });
           tools.appendChild(toAct);
@@ -968,8 +1078,8 @@
         box.setAttribute("aria-label", "Marquer comme faite : " + action.text);
         box.addEventListener("change", function () {
           action.done = box.checked;
-          saveState();
           renderActions();
+          db.ref("board/actions/" + action.id).update({ done: !!action.done }).catch(warnWrite);
           setStatus(action.done ? "Action marquée comme faite." : "Action rouverte.");
         });
         li.appendChild(box);
@@ -985,7 +1095,7 @@
         owner.addEventListener("change", function () {
           action.owner = owner.value.trim().slice(0, 40);
           owner.value = action.owner;
-          saveState();
+          db.ref("board/actions/" + action.id).update({ owner: action.owner }).catch(warnWrite);
           setStatus(action.owner ? "Responsable enregistré." : "Responsable retiré.");
         });
         li.appendChild(owner);
@@ -1004,8 +1114,8 @@
             return;
           }
           state.actions = state.actions.filter(function (item) { return item.id !== action.id; });
-          saveState();
           renderActions();
+          db.ref("board/actions/" + action.id).remove().catch(warnWrite);
           setStatus("Action supprimée.");
         });
         li.appendChild(del);
@@ -1026,23 +1136,22 @@
     function setActive(id) {
       if (PEOPLE.indexOf(id) < 0 || state.activeId === id) return;
       state.activeId = id;
-      saveState();
+      saveLocal();
       renderBudget();
       renderCards();
     }
 
     function addCard(lane, text) {
       var clean = text.trim().slice(0, 240);
-      if (!clean) return;
-      state.cards.push({ id: uid(), lane: lane.id, text: clean, t: Date.now(), votes: {} });
-      saveState();
-      renderCards();
-      renderBudget();
+      if (!clean || !ensureReady()) return false;
+      var card = { id: uid(), lane: lane.id, text: clean, t: Date.now(), votes: {} };
+      db.ref("board/cards/" + card.id).set({ lane: card.lane, text: card.text, t: card.t, votes: {} }).catch(warnWrite);
       setStatus("Carte ajoutée dans " + lane.name + ".");
+      return true;
     }
 
     function addVote(cardId) {
-      if (editLock) return;
+      if (editLock || !ensureReady()) return;
       var card = state.cards.filter(function (item) { return item.id === cardId; })[0];
       if (!card) return;
       var mine = card.votes[state.activeId] || 0;
@@ -1051,33 +1160,36 @@
         setStatus("Plus de vote disponible dans ce bloc.");
         return;
       }
-      card.votes[state.activeId] = mine + 1;
-      saveState();
+      var personId = state.activeId;
+      card.votes[personId] = mine + 1;
       renderCards();
       renderBudget();
-      var left = VOTES_PER_LANE - usedInLane(state.activeId, card.lane);
+      var left = VOTES_PER_LANE - usedInLane(personId, card.lane);
       var lane = laneById(card.lane);
       setStatus(personLabel(activePerson()) + " : vote ajouté dans " + lane.name + ". " + (left === 0 ? "Les 2 votes de ce bloc sont placés." : "Il en reste " + left + "."));
+      db.ref("board/cards/" + cardId + "/votes/" + personId).set(mine + 1).catch(warnWrite);
     }
 
     function removeVote(cardId) {
-      if (editLock) return;
+      if (editLock || !ensureReady()) return;
       var card = state.cards.filter(function (item) { return item.id === cardId; })[0];
       if (!card) return;
       var mine = card.votes[state.activeId] || 0;
       if (mine <= 0) return;
+      var personId = state.activeId;
       mine -= 1;
-      if (mine) card.votes[state.activeId] = mine;
-      else delete card.votes[state.activeId];
-      saveState();
+      if (mine) card.votes[personId] = mine;
+      else delete card.votes[personId];
       renderCards();
       renderBudget();
       setStatus("Vote retiré.");
+      var voteRef = db.ref("board/cards/" + cardId + "/votes/" + personId);
+      (mine ? voteRef.set(mine) : voteRef.remove()).catch(warnWrite);
     }
 
     function addAction(text, owner) {
       var clean = text.trim().slice(0, 200);
-      if (!clean) return null;
+      if (!clean || !ensureReady()) return null;
       var existing = state.actions.filter(function (action) { return sameText(action.text, clean); })[0];
       if (existing) {
         renderActions();
@@ -1090,9 +1202,13 @@
         return existing;
       }
       var action = { id: uid(), text: clean, owner: owner.trim().slice(0, 40), done: false, t: Date.now() };
-      state.actions.push(action);
-      saveState();
-      renderActions();
+      db.ref("board/actions/" + action.id).set({ text: action.text, owner: action.owner, done: false, t: action.t }).then(function () {
+        if (action.owner) return;
+        var field = document.querySelector('[data-focus-key="owner-' + (window.CSS && CSS.escape ? CSS.escape(action.id) : action.id) + '"]');
+        if (!field) return;
+        scrollToNode(field);
+        field.focus();
+      }).catch(warnWrite);
       setStatus(action.owner ? "Action ajoutée." : "Action ajoutée. Pensez à nommer un responsable.");
       return action;
     }
@@ -1131,8 +1247,8 @@
           return;
         }
         card.text = value;
-        saveState();
         renderCards();
+        db.ref("board/cards/" + card.id).update({ text: value }).catch(warnWrite);
         setStatus("Carte mise à jour.");
       }
       save.addEventListener("click", commit);
@@ -1231,8 +1347,8 @@
         form.addEventListener("submit", function (event) {
           event.preventDefault();
           var value = input.value;
+          if (!addCard(lane, value)) return;
           input.value = "";
-          addCard(lane, value);
           input.focus();
         });
         section.appendChild(form);
@@ -1271,32 +1387,38 @@
 
     $("sprint").addEventListener("input", function () {
       state.sprint = $("sprint").value.slice(0, 80);
-      saveState();
+      if (!ensureReady()) return;
+      db.ref("board/sprint").set(state.sprint).catch(warnWrite);
     });
+
+    function publishName() {
+      if (!ensureReady()) return;
+      db.ref("board/people/" + state.activeId + "/name").set(activePerson().name).catch(warnWrite);
+    }
 
     $("person-name").addEventListener("input", function () {
       activePerson().name = $("person-name").value.slice(0, 40);
-      saveState();
       var button = document.querySelector('.person[data-id="' + state.activeId + '"]');
       button.querySelector(".who-name").textContent = personLabel(activePerson());
       paintOwners();
       renderTurn();
+      publishName();
     });
     $("person-name").addEventListener("blur", function () {
       if (!activePerson().name.trim()) {
         var index = PEOPLE.indexOf(state.activeId);
         activePerson().name = "Personne " + (index + 1);
         $("person-name").value = activePerson().name;
-        saveState();
         paintPeople();
         renderTurn();
       }
+      publishName();
     });
 
     $("theme-btn").addEventListener("click", function () {
       var dark = state.theme === "dark" || (!state.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
       state.theme = dark ? "light" : "dark";
-      saveState();
+      saveLocal();
       applyTheme();
     });
 
@@ -1343,10 +1465,19 @@
       var reader = new FileReader();
       reader.onload = function () {
         try {
-          state = sanitize(JSON.parse(String(reader.result)));
-          saveState();
-          renderAll();
-          setStatus("Sauvegarde restaurée.");
+          if (!ensureReady()) return;
+          if (!window.confirm("Remplacer le tableau partagé par cette sauvegarde ?")) return;
+          var next = sanitize(JSON.parse(String(reader.result)));
+          var theme = state.theme;
+          var activeId = state.activeId;
+          state = next;
+          state.theme = theme;
+          state.activeId = PEOPLE.indexOf(activeId) >= 0 ? activeId : "p1";
+          saveLocal();
+          publishBoard().then(function () {
+            renderAll();
+            setStatus("Sauvegarde restaurée pour tout le monde.");
+          }).catch(warnWrite);
         } catch (e) {
           setStatus("Ce fichier n'est pas une sauvegarde utilisable.");
         }
@@ -1355,15 +1486,19 @@
     });
 
     $("reset").addEventListener("click", function () {
-      if (!window.confirm("Effacer les cartes, les votes et les actions ? Les noms des 5 personnes sont conservés.")) return;
-      var theme = state.theme;
-      var people = state.people.map(function (person) { return { id: person.id, name: person.name }; });
-      state = emptyState();
-      state.theme = theme;
-      state.people = people;
-      saveState();
+      if (!ensureReady()) return;
+      if (!window.confirm("Effacer les cartes, les votes et les actions pour tout le monde ? Les noms des 5 personnes sont conservés.")) return;
+      state.cards = [];
+      state.actions = [];
+      state.sprint = "";
       renderAll();
-      setStatus("Tableau effacé. Les noms sont conservés.");
+      Promise.all([
+        db.ref("board/cards").remove(),
+        db.ref("board/actions").remove(),
+        db.ref("board/sprint").set("")
+      ]).then(function () {
+        setStatus("Tableau effacé. Les noms sont conservés.");
+      }).catch(warnWrite);
     });
 
     document.addEventListener("keydown", function (event) {
@@ -1379,18 +1514,49 @@
       if (selected) selected.focus();
     });
 
-    window.addEventListener("storage", function (event) {
-      if (event.key !== STORAGE_KEY) return;
-      state = loadState();
-      renderAll();
-    });
+    function connectBoard() {
+      if (!window.firebase) {
+        setStatus("Firebase n'a pas pu se charger. Recharge la page.");
+        return;
+      }
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      var listening = false;
+      firebase.auth().onAuthStateChanged(function (user) {
+        if (!user || listening) return;
+        listening = true;
+        db.ref("board").on("value", function (snap) {
+          boardReady = true;
+          try {
+            applyRemote(snap.val() || {});
+          } catch (err) {
+            console.error(err);
+            setStatus("Le tableau n'a pas pu s'afficher. Recharge la page.");
+          }
+          if (!$("status").dataset.live) {
+            $("status").dataset.live = "1";
+            setStatus("Tableau partagé. Chacun choisit son nom, les cartes sont les mêmes pour les cinq.");
+          }
+        }, function () {
+          boardReady = false;
+          setStatus("Accès refusé. Vérifie les règles Firebase, puis recharge la page.");
+        });
+      });
+      firebase.auth().signInAnonymously().catch(function (err) {
+        var code = err && err.code;
+        if (code === "auth/operation-not-allowed") setStatus("Dans Firebase, active la connexion Anonyme, puis recharge la page.");
+        else if (code === "auth/unauthorized-domain") setStatus("Ajoute le domaine Netlify dans Firebase : Authentication, Settings, Authorized domains.");
+        else setStatus("Connexion impossible. Réessaie dans un instant.");
+      });
+    }
 
     formatDate();
     buildPeople();
     buildLanes();
-    state = loadState();
+    loadLocal();
     renderAll();
-    setStatus("Tableau enregistré dans ce navigateur.");
+    setStatus("Connexion au tableau partagé…");
+    connectBoard();
     startWaves();
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
       if (!state.theme) applyTheme();
