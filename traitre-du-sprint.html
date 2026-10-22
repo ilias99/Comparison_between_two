@@ -239,7 +239,7 @@
 
     <p class="rule">
       <strong>Cinq manches, un traître à chaque fois.</strong>
-      La paire de mots est la même pour tout le monde. Quatre personnes gardent le bon sens, une l'inverse. On vote pour la phrase qui sonne faux. L'équipe marque un point par loyal seulement si le traître est seul en tête. Sinon, il marque le point. Chacun est traître une fois. La première manche se joue sur la majuscule et la minuscule. Les quatre autres parlent de données, lisibles par un analyste comme par un ingénieur data.
+      La paire de mots est la même pour tout le monde. Quatre personnes gardent le bon sens, une l'inverse. On vote pour la phrase qui sonne faux. L'équipe marque un point par loyal seulement si le traître est seul en tête. Sinon, il marque le point. Chacun est traître une fois. La première paire s'écrit Majuscule / mijuscule. Une manche oppose daily et retro. Les trois autres parlent de données, lisibles par un analyste comme par un ingénieur data.
     </p>
 
     <div class="scene" aria-hidden="true">
@@ -294,11 +294,11 @@
     var MANCHES = [
       {
         theme: "La casse",
-        a: "Paris",
-        b: "paris",
-        loyal: "Paris, c'est la ville. paris, ce sont les mises. Explique dans ce sens.",
-        traitor: "Inverse la casse : fais passer paris pour la ville, ou Paris pour des mises.",
-        note: "La majuscule fait la ville. La minuscule fait les mises."
+        a: "Majuscule",
+        b: "mijuscule",
+        loyal: "Majuscule, ce sont les grandes lettres. mijuscule, ce sont les petites, avec cette orthographe. Explique dans ce sens.",
+        traitor: "Inverse : fais passer mijuscule pour les grandes lettres, ou Majuscule pour les petites.",
+        note: "Majuscule : les grandes lettres. mijuscule : les petites, écrites exprès ainsi."
       },
       {
         theme: "Fabriquer la donnée",
@@ -309,12 +309,12 @@
         note: "ETL : extraire, transformer, charger. ELT : extraire, charger, transformer."
       },
       {
-        theme: "Où ranger les données",
-        a: "Lac de données",
-        b: "Entrepôt de données",
-        loyal: "Le lac garde le brut, sous toutes ses formes. L'entrepôt sert des données déjà structurées.",
-        traitor: "Inverse : décris le lac comme un stock déjà prêt pour les tableaux de bord.",
-        note: "Le lac stocke le brut. L'entrepôt sert des données modélisées."
+        theme: "Le rythme de l'équipe",
+        a: "daily",
+        b: "retro",
+        loyal: "Le daily est le point court de chaque jour. La retro regarde le sprint passé. Explique dans ce sens.",
+        traitor: "Inverse : décris le daily comme un bilan de sprint, ou la retro comme le point du matin.",
+        note: "Le daily aligne l'équipe chaque jour. La retro revient sur le sprint passé."
       },
       {
         theme: "Les clés",
@@ -325,7 +325,7 @@
         note: "Primaire : identité de la ligne. Étrangère : lien vers une autre table."
       },
       {
-        theme: "Le rythme",
+        theme: "Le rythme des données",
         a: "Batch",
         b: "Flux continu",
         loyal: "Le batch traite des lots à heure fixe. Le flux continu traite les données à mesure qu'elles arrivent.",
