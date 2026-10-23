@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Traître du Sprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  /* Layout: une colonne étroite, comme une fiche posée sur la table : code, joueurs, ordre, résultat. */
+  :root {
+    --bg: #edf0f7;
+    --surface: #ffffff;
+    --fg: #121a33;
+    --muted: #55607f;
+    --line: #d3d9e8;
+    --accent: #c92a48;
+    --accent-fg: #ffffff;
+    --cover: #121a33;
+    --cover-fg: #eaeefa;
+    --ok: #1c7a52;
+    --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1322;
+      --surface: #171e33;
+      --fg: #eaeefa;
+      --muted: #98a2c0;
+      --line: #28314d;
+      --accent: #ff6b84;
+      --accent-fg: #1f0a10;
+      --cover: #262f4c;
+      --cover-fg: #eaeefa;
+      --ok: #5fd39b;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1322;
+    --surface: #171e33;
+    --fg: #eaeefa;
+    --muted: #98a2c0;
+    --line: #28314d;
+    --accent: #ff6b84;
+    --accent-fg: #1f0a10;
+    --cover: #262f4c;
+    --cover-fg: #eaeefa;
+    --ok: #5fd39b;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.5;
+    padding-inline: 16px;
+    padding-block: 28px 56px;
+  }
+  .wrap { max-width: 520px; margin-inline: auto; display: flex; flex-direction: column; gap: 28px; }
+
+  header { display: flex; flex-direction: column; gap: 10px; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2.2rem, 9vw, 3rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .lead { margin: 0; color: var(--muted); max-width: 46ch; }
+
+  section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  h2 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.2rem;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .hint { margin: 0; font-size: 14px; color: var(--muted); }
+
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row > * { min-width: 0; }
+
+  input[type="text"] {
+    flex: 1 1 180px;
+    font: 500 18px var(--font-mono);
+    color: var(--fg);
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  input[type="text"]::placeholder { color: var(--muted); opacity: 0.7; }
+
+  button { font-family: var(--font-body); cursor: pointer; }
+  button:focus-visible, input:focus-visible, label:has(input:focus-visible) {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .btn {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fg);
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .btn:hover { border-color: var(--fg); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn-primary:hover { border-color: var(--accent); filter: brightness(1.06); }
+  .btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+  .rounds { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rounds .label { font-size: 14px; color: var(--muted); margin-right: 4px; }
+  .round {
+    position: relative;
+    width: 44px; height: 44px;
+    display: grid; place-items: center;
+    font: 500 16px var(--font-mono);
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .round input { position: absolute; opacity: 0; inset: 0; cursor: pointer; margin: 0; }
+  .round:has(input:checked) { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+  .players { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .player {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    text-align: left;
+    font-size: 17px; font-weight: 600;
+    color: var(--fg);
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 14px;
+    min-height: 60px;
+    overflow-wrap: anywhere;
+  }
+  .player:hover:not([disabled]) { border-color: var(--fg); }
+  .player[disabled] { opacity: 0.45; cursor: not-allowed; }
+  .player .seen {
+    flex: none;
+    font: 500 11px var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ok);
+  }
+
+  ol.order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); overflow: hidden; }
+  ol.order li { display: flex; align-items: baseline; gap: 14px; padding: 12px 14px; border-top: 1px solid var(--line); }
+  ol.order li:first-child { border-top: 0; }
+  ol.order .pos { font: 500 14px var(--font-mono); color: var(--accent); width: 1.5em; flex: none; }
+  ol.order .nm { font-weight: 600; overflow-wrap: anywhere; }
+  .empty { margin: 0; padding: 16px 14px; border: 1.5px dashed var(--line); border-radius: 12px; color: var(--muted); font-size: 14px; }
+
+  .result { border: 1.5px solid var(--accent); border-radius: 12px; background: var(--surface); padding: 18px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .result .big { font-family: var(--font-display); font-weight: 800; font-size: 1.7rem; line-height: 1.1; margin: 0; overflow-wrap: anywhere; }
+  .result .words { margin: 0; color: var(--muted); }
+  .result .words b { color: var(--fg); }
+
+  /* Fiche privée du joueur */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(6px);
+    display: grid; place-items: center;
+    padding: 16px;
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  .sheet {
+    width: 100%; max-width: 420px;
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .sheet h3 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 1.3rem; overflow-wrap: anywhere; }
+  .card {
+    min-height: 190px;
+    display: grid; place-items: center; text-align: center;
+    border-radius: 12px;
+    padding: 18px;
+    width: 100%;
+    border: 0;
+    background: var(--cover);
+    color: var(--cover-fg);
+    font-size: 16px;
+  }
+  .card .tap { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.85; }
+  .card .word { font-family: var(--font-display); font-weight: 800; font-size: clamp(2rem, 11vw, 2.8rem); line-height: 1.05; overflow-wrap: anywhere; }
+  .card.used { background: var(--line); color: var(--muted); cursor: default; }
+  .card.open { background: var(--accent); color: var(--accent-fg); }
+  .sheet .meta { margin: 0; font-size: 14px; color: var(--muted); min-height: 1.5em; }
+  .sheet .meta b { color: var(--fg); }
+
+  .stack { display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 14px; font-weight: 600; }
+  select {
+    font: 500 17px var(--font-body);
+    color: var(--fg);
+    background: var(--surface);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    width: 100%;
+  }
+  select:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .field input[type="text"] { flex: none; width: 100%; font-family: var(--font-body); font-size: 18px; }
+  .result .btn { align-self: flex-start; }
+  .themebtn { align-self: flex-start; }
+  footer { font-size: 13px; color: var(--muted); }
+  footer a { color: var(--fg); font-weight: 600; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card { transition: background-color 0.2s; }
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Avant la sprint review · 5 joueurs</span>
+    <h1>Le Traître du Sprint</h1>
+    <p class="lead">Quatre joueurs ont le même mot. Un seul a un mot voisin. Le mot et le traître sont tirés par la page : personne ne sait qui c'est, même pas celui qui lance la manche.</p>
+  </header>
+
+  <section aria-labelledby="h-code">
+    <h2 id="h-code">1. Code de la manche</h2>
+    <div class="row">
+      <input type="text" id="code" placeholder="ex. comete-42" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Code de la manche">
+      <button class="btn" id="gen" type="button">Générer</button>
+      <button class="btn" id="copy" type="button">Copier</button>
+    </div>
+    <p class="hint">Poste le même code dans le chat Teams. Tout le monde tape le même, sinon les mots ne correspondent pas.</p>
+    <div class="rounds" role="radiogroup" aria-label="Numéro de manche">
+      <span class="label">Manche</span>
+      <label class="round"><input type="radio" name="m" value="1" checked>1</label>
+      <label class="round"><input type="radio" name="m" value="2">2</label>
+      <label class="round"><input type="radio" name="m" value="3">3</label>
+      <label class="round"><input type="radio" name="m" value="4">4</label>
+      <label class="round"><input type="radio" name="m" value="5">5</label>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-word">
+    <h2 id="h-word">2. Découvre ton mot</h2>
+    <p class="hint">Touche ton prénom, puis la carte pour voir ton mot. Il ne s'affiche qu'une seule fois par manche, y compris sur un autre appareil qui a le même code. Ne regarde pas celui des autres.</p>
+    <div class="players" id="players"></div>
+  </section>
+
+  <section aria-labelledby="h-order">
+    <h2 id="h-order">3. Ordre de parole</h2>
+    <p class="hint">Chacun donne un seul mot en lien avec le sien. Ensuite 3 minutes de débat, puis vote.</p>
+    <div id="order"></div>
+  </section>
+
+  <section aria-labelledby="h-end">
+    <h2 id="h-end">4. Vote et fin de manche</h2>
+    <p class="hint">Après le débat, tout le monde vote en même temps. Indique ici qui a le plus de votes. Si c'est le traître, il tente de deviner le mot du groupe.</p>
+    <div id="end"></div>
+  </section>
+
+  <footer>
+    <p><a href="https://thunderous-boba-44b8bf.netlify.app/">Ensuite : la rétrospective voilier</a></p>
+    <button class="btn themebtn" id="theme" type="button">Thème : auto</button>
+  </footer>
+</div>
+
+<div class="overlay" id="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-name">
+  <div class="sheet">
+    <h3 id="sheet-name"></h3>
+    <button class="card" id="card" type="button" aria-live="polite"></button>
+    <p class="meta" id="meta"></p>
+    <button class="btn btn-primary" id="close" type="button">Fermer la fiche</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
+<script>
+(function () {
+  var PLAYERS = ["Alex the best", "Alexandre", "Yani", "Veronique", "Elyase"];
+  var PAIRS = [
+    ["Majuscule", "mijuscule"],
+    ["ETL", "ELT"],
+    ["daily", "retro"],
+    ["Clé primaire", "Clé étrangère"],
+    ["Batch", "Flux continu"]
+  ];
+  var WORDS = ["tigre", "comete", "pixel", "delta", "nuage", "kanban", "fusee", "bambou", "zebre", "ardoise"];
+  var firebaseConfig = {
+    apiKey: "AIzaSyA4XCzpsTOur1Hseqi9VS7bGEKPbMSeUKY",
+    authDomain: "test-cbc24.firebaseapp.com",
+    databaseURL: "https://test-cbc24-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "test-cbc24",
+    storageBucket: "test-cbc24.firebasestorage.app",
+    messagingSenderId: "824671676051",
+    appId: "1:824671676051:web:97b3d36acf7a47bcb64f66"
+  };
+  var db = null;
+  var authed = false;
+  var vuOff = null;
+  var pendingSeen = [];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var state = { code: "", round: 1, seen: {}, end: null, shown: false, open: -1, timer: null, used: false };
+
+  function xmur3(str) {
+    var h = 1779033703 ^ str.length;
+    for (var i = 0; i < str.length; i++) { h = Math.imul(h ^ str.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+  function rngFor(seed) {
+    var a = xmur3(seed)();
+    return function () {
+      a |= 0; a = (a + 1831565813) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, rnd) {
+    var a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function compute(code, round) {
+    var liarPerm = shuffle([0, 1, 2, 3, 4], rngFor(code + "|liar"));
+    var liar = liarPerm[(round - 1) % 5];
+    var offset = Math.floor(rngFor(code + "|pair")() * PAIRS.length);
+    var pair = PAIRS[(offset + round - 1) % PAIRS.length];
+    var swap = Math.floor(rngFor(code + "|swap|" + round)() * 2);
+    var order = shuffle([0, 1, 2, 3, 4], rngFor(code + "|order|" + round));
+    return { liar: liar, groupWord: pair[swap], liarWord: pair[1 - swap], order: order };
+  }
+
+  function current() { return state.code ? compute(state.code, state.round) : null; }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+
+  function renderPlayers() {
+    var box = $("players");
+    box.textContent = "";
+    PLAYERS.forEach(function (name, i) {
+      var b = el("button", "player");
+      b.type = "button";
+      b.appendChild(el("span", null, name));
+      if (isSeen(i)) b.appendChild(el("span", "seen", "Vu"));
+      b.disabled = !state.code;
+      b.addEventListener("click", function () { openSheet(i); });
+      box.appendChild(b);
+    });
+  }
+
+  function renderOrder() {
+    var box = $("order");
+    box.textContent = "";
+    var c = current();
+    if (!c) { box.appendChild(el("p", "empty", "Entre un code pour voir l'ordre de parole.")); return; }
+    var ol = el("ol", "order");
+    c.order.forEach(function (pi, k) {
+      var li = el("li");
+      li.appendChild(el("span", "pos", String(k + 1)));
+      li.appendChild(el("span", "nm", PLAYERS[pi]));
+      ol.appendChild(li);
+    });
+    box.appendChild(ol);
+  }
+
+  function norm(t) {
+    return t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+  }
+  function guessOk(guess, word) {
+    var g = norm(guess), w = norm(word);
+    if (!g) return false;
+    if (g === w) return true;
+    return w.split(" ").some(function (p) { return p.length >= 5 && p === g; });
+  }
+
+  function wordsLine(c) {
+    var w = el("p", "words");
+    w.appendChild(document.createTextNode("Mot du groupe : "));
+    w.appendChild(el("b", null, c.groupWord));
+    w.appendChild(document.createTextNode(" · Mot du traître : "));
+    w.appendChild(el("b", null, c.liarWord));
+    return w;
+  }
+
+  function renderEnd() {
+    var box = $("end");
+    box.textContent = "";
+    var c = current();
+    if (!c) { box.appendChild(el("p", "empty", "Disponible une fois le code saisi.")); return; }
+    var e = state.end;
+
+    if (!e) {
+      var f = el("div", "field");
+      var lab = el("label", null, "Qui a reçu le plus de votes ?");
+      lab.setAttribute("for", "voted");
+      var sel = el("select");
+      sel.id = "voted";
+      var o0 = el("option", null, "Choisir…");
+      o0.value = "";
+      sel.appendChild(o0);
+      PLAYERS.forEach(function (n, i) { var o = el("option", null, n); o.value = String(i); sel.appendChild(o); });
+      var oe = el("option", null, "Égalité");
+      oe.value = "tie";
+      sel.appendChild(oe);
+      var go = el("button", "btn btn-primary", "Valider le vote");
+      go.type = "button";
+      go.disabled = true;
+      sel.addEventListener("change", function () { go.disabled = !sel.value; });
+      go.addEventListener("click", function () {
+        if (!sel.value) return;
+        if (sel.value !== "tie" && parseInt(sel.value, 10) === c.liar) state.end = { stage: "guess", voted: c.liar };
+        else state.end = { stage: "done", outcome: "escaped" };
+        renderEnd();
+      });
+      f.appendChild(lab);
+      f.appendChild(sel);
+      box.appendChild(f);
+      box.appendChild(go);
+      box.className = "stack";
+      return;
+    }
+
+    box.className = "stack";
+
+    if (e.stage === "guess") {
+      var r = el("div", "result");
+      r.appendChild(el("span", "eyebrow", "Traître démasqué"));
+      r.appendChild(el("p", "big", PLAYERS[c.liar]));
+      r.appendChild(el("p", "words", "Une seule chance : retrouver le mot du groupe. Si c'est bon, le traître gagne quand même."));
+      var f2 = el("div", "field");
+      var lab2 = el("label", null, "Mot du groupe, selon " + PLAYERS[c.liar]);
+      lab2.setAttribute("for", "guess");
+      var inp = el("input");
+      inp.type = "text";
+      inp.id = "guess";
+      inp.autocomplete = "off";
+      inp.autocapitalize = "off";
+      inp.spellcheck = false;
+      inp.placeholder = "Ta proposition";
+      f2.appendChild(lab2);
+      f2.appendChild(inp);
+      var chk = el("button", "btn btn-primary", "Vérifier");
+      chk.type = "button";
+      function submit() {
+        if (!inp.value.trim()) { inp.focus(); return; }
+        state.end = { stage: "done", outcome: guessOk(inp.value, c.groupWord) ? "guessed" : "missed", guess: inp.value.trim() };
+        renderEnd();
+      }
+      chk.addEventListener("click", submit);
+      inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") submit(); });
+      r.appendChild(f2);
+      r.appendChild(chk);
+      box.appendChild(r);
+      return;
+    }
+
+    var res = el("div", "result");
+    var head, who, text;
+    if (e.outcome === "escaped") {
+      head = "Pas de majorité sur le traître";
+      who = "Le traître gagne";
+      text = "Le traître était " + PLAYERS[c.liar] + ".";
+    } else if (e.outcome === "guessed") {
+      head = "Démasqué, mais mot trouvé";
+      who = "Le traître gagne";
+      text = PLAYERS[c.liar] + " a proposé « " + e.guess + " ».";
+    } else {
+      head = "Démasqué, mot raté";
+      who = "Le groupe gagne";
+      text = PLAYERS[c.liar] + " a proposé « " + e.guess + " ».";
+    }
+    res.appendChild(el("span", "eyebrow", head));
+    res.appendChild(el("p", "big", who));
+    res.appendChild(el("p", "words", text));
+    res.appendChild(wordsLine(c));
+    box.appendChild(res);
+    var nx = el("button", "btn", state.round < 5 ? "Manche suivante" : "Recommencer");
+    nx.type = "button";
+    nx.addEventListener("click", function () {
+      var next = state.round < 5 ? state.round + 1 : 1;
+      var radio = document.querySelector('input[name="m"][value="' + next + '"]');
+      radio.checked = true;
+      state.round = next;
+      resetRound();
+      window.scrollTo(0, 0);
+    });
+    box.appendChild(nx);
+  }
+
+  function resetRound() {
+    state.seen = {};
+    state.end = null;
+    closeSheet(true);
+    renderAll();
+    listenVu();
+  }
+
+  function renderAll() { renderPlayers(); renderOrder(); renderEnd(); }
+
+  /* Fiche privée */
+  function key(i) { return "ts|" + state.code + "|" + state.round + "|" + i; }
+  function isSeen(i) {
+    if (state.seen[i]) return true;
+    try { return localStorage.getItem(key(i)) === "1"; } catch (e) { return false; }
+  }
+  function markSeen(i) {
+    state.seen[i] = true;
+    try { localStorage.setItem(key(i), "1"); } catch (e) { /* ignoré */ }
+    pushSeen(state.code, state.round, i);
+  }
+  function codeKey(code) {
+    return String(code).replace(/[.#$[\]/]/g, function (ch) {
+      return "%" + ch.charCodeAt(0).toString(16);
+    });
+  }
+  function pushSeen(code, round, i) {
+    if (!code) return;
+    if (!db || !authed) { pendingSeen.push({ code: code, round: round, i: i }); return; }
+    db.ref("board/vu/" + codeKey(code) + "/" + round + "/" + i).set(true).catch(function () {});
+  }
+  function publishLocalSeen() {
+    if (!state.code) return;
+    for (var i = 0; i < PLAYERS.length; i++) if (isSeen(i)) pushSeen(state.code, state.round, i);
+  }
+  function applyRemoteSeen(val) {
+    val = val || {};
+    var changed = false;
+    for (var i = 0; i < PLAYERS.length; i++) {
+      if (!val[i] && !val[String(i)]) continue;
+      if (state.seen[i]) continue;
+      state.seen[i] = true;
+      try { localStorage.setItem(key(i), "1"); } catch (e) {}
+      changed = true;
+    }
+    if (!changed) return;
+    renderPlayers();
+    if (state.open >= 0 && isSeen(state.open) && !state.shown) {
+      state.used = true;
+      paintCard();
+    }
+  }
+  function listenVu() {
+    if (vuOff) { vuOff(); vuOff = null; }
+    if (!db || !authed || !state.code) return;
+    var ref = db.ref("board/vu/" + codeKey(state.code) + "/" + state.round);
+    var onValue = function (snap) { applyRemoteSeen(snap.val()); };
+    ref.on("value", onValue);
+    vuOff = function () { ref.off("value", onValue); };
+    publishLocalSeen();
+  }
+  function connectVu() {
+    if (!window.firebase || db) return;
+    try { firebase.initializeApp(firebaseConfig); } catch (e) { return; }
+    db = firebase.database();
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (!user || authed) return;
+      authed = true;
+      pendingSeen.splice(0).forEach(function (item) { pushSeen(item.code, item.round, item.i); });
+      listenVu();
+    });
+    firebase.auth().signInAnonymously().catch(function () {});
+  }
+  function paintCard() {
+    var c = current();
+    var card = $("card");
+    card.textContent = "";
+    if (state.shown) {
+      var word = state.open === c.liar ? c.liarWord : c.groupWord;
+      card.className = "card open";
+      card.appendChild(el("span", "word", word));
+      var pos = c.order.indexOf(state.open) + 1;
+      $("meta").textContent = "";
+      $("meta").appendChild(document.createTextNode("Tu parles en position "));
+      $("meta").appendChild(el("b", null, String(pos)));
+      $("meta").appendChild(document.createTextNode(". Le mot se cache dans 8 secondes et ne se réaffiche plus."));
+    } else if (state.used) {
+      card.className = "card used";
+      card.appendChild(el("span", "tap", "Mot déjà affiché"));
+      $("meta").textContent = "Un mot ne s'affiche qu'une seule fois par manche.";
+    } else {
+      card.className = "card";
+      card.appendChild(el("span", "tap", "Touche pour voir ton mot"));
+      $("meta").textContent = "Tu ne le verras qu'une seule fois. Assure-toi que personne ne regarde ton écran.";
+    }
+    card.disabled = state.used && !state.shown;
+  }
+  function hideWord() {
+    clearTimeout(state.timer);
+    state.shown = false;
+    state.used = true;
+    paintCard();
+  }
+  function openSheet(i) {
+    if (!state.code) return;
+    state.open = i;
+    state.shown = false;
+    state.used = isSeen(i);
+    $("sheet-name").textContent = PLAYERS[i];
+    $("overlay").hidden = false;
+    paintCard();
+    if (!state.used) $("card").focus();
+  }
+  function closeSheet(silent) {
+    clearTimeout(state.timer);
+    if (state.shown) state.used = true;
+    state.open = -1;
+    state.shown = false;
+    state.used = false;
+    $("overlay").hidden = true;
+    if (!silent) renderPlayers();
+  }
+  $("card").addEventListener("click", function () {
+    if (state.open < 0 || state.used) return;
+    clearTimeout(state.timer);
+    if (state.shown) { hideWord(); return; }
+    state.shown = true;
+    markSeen(state.open);
+    paintCard();
+    state.timer = setTimeout(hideWord, 8000);
+  });
+  $("close").addEventListener("click", function () { closeSheet(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && state.open >= 0) closeSheet(false); });
+
+  /* Code et manche */
+  function setCode(v) {
+    var n = v.trim().toLowerCase();
+    if (n === state.code) return;
+    state.code = n;
+    resetRound();
+  }
+  $("code").addEventListener("input", function (e) { setCode(e.target.value); });
+  $("gen").addEventListener("click", function () {
+    var w = WORDS[Math.floor(Math.random() * WORDS.length)];
+    var n = String(Math.floor(Math.random() * 90) + 10);
+    $("code").value = w + "-" + n;
+    setCode($("code").value);
+  });
+  $("copy").addEventListener("click", function () {
+    var inp = $("code");
+    var btn = $("copy");
+    if (!inp.value) return;
+    function done(t) { btn.textContent = t; setTimeout(function () { btn.textContent = "Copier"; }, 1500); }
+    try {
+      navigator.clipboard.writeText(inp.value).then(function () { done("Copié"); }, function () { inp.select(); done("Sélectionné"); });
+    } catch (err) { inp.select(); done("Sélectionné"); }
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="m"]'), function (r) {
+    r.addEventListener("change", function () { state.round = parseInt(r.value, 10); resetRound(); });
+  });
+
+  /* Thème */
+  var modes = ["auto", "clair", "sombre"];
+  var mi = 0;
+  $("theme").addEventListener("click", function () {
+    mi = (mi + 1) % 3;
+    var root = document.documentElement;
+    if (mi === 0) root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", mi === 1 ? "light" : "dark");
+    $("theme").textContent = "Thème : " + modes[mi];
+  });
+
+  renderAll();
+  connectVu();
+})();
+</script>
+
+</body>
+</html>

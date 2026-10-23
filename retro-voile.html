@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rétrospective voilier</title>
+  <meta name="description" content="Rétrospective de sprint en forme de voilier. Cinq personnes, deux votes par bloc.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#e6eef0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c1c27" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23e6eef0' width='32' height='32'/%3E%3Cpath d='M5 21h22l-3 5H8z' fill='%23173044'/%3E%3Cpath d='M16 21V7l11 14z' fill='%23f7fbfc' stroke='%23173044' stroke-width='1.4'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=IBM+Plex+Mono:wght@500&family=Outfit:wght@400;500;600&display=swap">
+  <style>
+    :root, :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #e6eef0;
+      --surface: #f6faf8;
+      --ink: #173044;
+      --muted: #3e5563;
+      --line: #c5d4d6;
+      --sea: #d5e5ea;
+      --wave: #c3d8e0;
+      --wave-line: #6f97a6;
+      --sky1: #f8fbfc;
+      --sky2: #d5e6ec;
+      --sail: #f7fbfc;
+      --sun: #e2b143;
+      --sand: #e4cd9e;
+      --wind: #0e6a72;
+      --anchor: #8a4e0c;
+      --rocks: #a1263c;
+      --island: #246338;
+      --on-accent: #ffffff;
+      --focus: #173044;
+      --font-display: "Fraunces", "Iowan Old Style", Palatino, Georgia, serif;
+      --font-body: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
+      --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #0c1c27;
+        --surface: #132838;
+        --ink: #e7f1f5;
+        --muted: #a9c0cc;
+        --line: #2c4a5c;
+        --sea: #14384a;
+        --wave: #1c5168;
+        --wave-line: #8ec3d4;
+        --sky1: #102838;
+        --sky2: #1a4458;
+        --sail: #f7fbfc;
+        --sun: #e6c36a;
+        --sand: #c6a56a;
+        --wind: #7fd3dc;
+        --anchor: #e6b15c;
+        --rocks: #ff9aa6;
+        --island: #8ed08a;
+        --on-accent: #10241c;
+        --focus: #e7f1f5;
+      }
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0c1c27;
+      --surface: #132838;
+      --ink: #e7f1f5;
+      --muted: #a9c0cc;
+      --line: #2c4a5c;
+      --sea: #14384a;
+      --wave: #1c5168;
+      --wave-line: #8ec3d4;
+      --sky1: #102838;
+      --sky2: #1a4458;
+      --sail: #f7fbfc;
+      --sun: #e6c36a;
+      --sand: #c6a56a;
+      --wind: #7fd3dc;
+      --anchor: #e6b15c;
+      --rocks: #ff9aa6;
+      --island: #8ed08a;
+      --on-accent: #10241c;
+      --focus: #e7f1f5;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 180px; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(900px 420px at 0% -10%, rgba(255, 255, 255, 0.7), transparent 55%),
+        radial-gradient(700px 380px at 100% 0%, rgba(36, 99, 56, 0.08), transparent 50%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.45;
+      padding: 20px max(16px, env(safe-area-inset-right)) 56px max(16px, env(safe-area-inset-left));
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    .skip {
+      position: absolute;
+      left: 12px;
+      top: -48px;
+      background: var(--ink);
+      color: var(--bg);
+      padding: 8px 12px;
+      border-radius: 8px;
+      z-index: 20;
+    }
+    .skip:focus { top: 12px; }
+    .wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+    .top { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .sprint {
+      display: block;
+      width: 100%;
+      margin: 2px 0 0;
+      padding: 0 0 2px;
+      border: 0;
+      border-bottom: 2px dashed transparent;
+      background: transparent;
+      font-family: var(--font-display);
+      font-weight: 560;
+      font-size: clamp(36px, 6vw, 64px);
+      line-height: 1.02;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+    .sprint:hover, .sprint:focus { border-bottom-color: var(--line); }
+    .sprint::placeholder { color: var(--muted); opacity: 0.55; }
+    .date { margin: 6px 0 0; color: var(--muted); }
+    .jump { margin: 10px 0 0; }
+    .jump a { color: var(--ink); font-weight: 600; }
+    .steps { display: flex; flex-wrap: wrap; gap: 8px 0; list-style: none; margin: 14px 0 0; padding: 0; }
+    .steps li { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 500; }
+    .steps li:not(:last-child)::after {
+      content: "";
+      width: 28px;
+      height: 1px;
+      margin: 0 10px;
+      background: var(--line);
+    }
+    .steps span {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--ink);
+      border-radius: 50%;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .ghost, .btn, .file-btn {
+      border-radius: 999px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      font-weight: 600;
+    }
+    .ghost { white-space: nowrap; }
+    .btn {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: var(--bg);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .btn.lane-btn { background: var(--c); border-color: var(--c); color: var(--on-accent); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .rule {
+      margin: 0;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--wind);
+      border-radius: 12px;
+    }
+    .rule strong { font-family: var(--font-display); font-size: 18px; font-weight: 560; }
+
+    .scene {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--sky2);
+    }
+    .scene svg { display: block; width: 100%; height: auto; }
+    .scene text { font-family: var(--font-mono); }
+
+    .toolbar {
+      position: sticky;
+      top: 8px;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--bg) 88%, transparent);
+      backdrop-filter: blur(14px);
+    }
+    .who-line, .name-line, .budget-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+    .who-line { justify-content: space-between; }
+    .who-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+    .person {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 180px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 4px 12px 4px 4px;
+    }
+    .person[aria-checked="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+    .person.is-next:not([aria-checked="true"]) { box-shadow: inset 0 0 0 2px var(--wind); }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      flex: none;
+    }
+    .who-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .name-edit { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+    .name-edit input, .add input, .act-add input, .owner, .edit-input {
+      min-width: 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font-size: 16px;
+    }
+    .name-edit input { width: min(220px, 46vw); }
+    .budget-line { color: var(--muted); font-size: 13px; }
+    .budget { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+    .bud { display: inline-flex; align-items: center; gap: 6px; color: var(--c); font-weight: 600; }
+    .pips { display: inline-flex; gap: 4px; }
+    .pip { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--c); }
+    .pip.used { background: var(--c); }
+    .turn { margin: 0; font-size: 14px; }
+    .status { margin: 0; color: var(--muted); font-size: 13px; min-height: 1.2em; }
+
+    .lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .lane, .actions, .backup, .guide {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .lane { display: flex; flex-direction: column; gap: 12px; min-width: 0; border-top: 4px solid var(--c); scroll-margin-top: 180px; }
+    .lane[data-lane="wind"] { --c: var(--wind); }
+    .lane[data-lane="anchor"] { --c: var(--anchor); }
+    .lane[data-lane="rocks"] { --c: var(--rocks); }
+    .lane[data-lane="island"] { --c: var(--island); }
+    .lane-head, .act-head { display: flex; justify-content: space-between; gap: 8px 12px; align-items: baseline; flex-wrap: wrap; }
+    .lane h2, .actions h2 { margin: 0; font-family: var(--font-display); font-weight: 560; font-size: 28px; letter-spacing: -0.02em; color: var(--c); }
+    .actions h2 { color: var(--ink); }
+    .hint, .sub, .lane-meta { color: var(--muted); font-size: 14px; }
+    .lane-meta { margin: 0; }
+    .add, .act-add { display: flex; gap: 8px; }
+    .add input { flex: 1; }
+    .act-add { flex-wrap: wrap; }
+    .act-add .what { flex: 3 1 220px; }
+    .act-add .owner-field { flex: 1 1 140px; }
+    .cards, .acts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .card, .act {
+      display: grid;
+      gap: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: var(--bg);
+    }
+    .card { grid-template-columns: minmax(0, 1fr) auto; border-left: 3px solid var(--c); }
+    .card.has-mine { background: color-mix(in srgb, var(--c) 10%, var(--bg)); }
+    .txt { overflow-wrap: anywhere; }
+    .kicker {
+      display: inline-block;
+      margin-bottom: 2px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--c);
+    }
+    .mine { margin: 4px 0 0; color: var(--c); font-size: 13px; font-weight: 600; }
+    .stepper {
+      display: inline-flex;
+      align-items: center;
+      border: 1.5px solid var(--c);
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .stepper button {
+      width: 40px;
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: var(--c);
+      font-size: 20px;
+      line-height: 1;
+    }
+    .stepper button:disabled { color: var(--line); cursor: not-allowed; }
+    .count {
+      min-width: 1.8rem;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      color: var(--c);
+      font-weight: 500;
+    }
+    .tools { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 14px; }
+    .link {
+      background: none;
+      border: 0;
+      padding: 2px 0;
+      color: var(--muted);
+      font-size: 13px;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .link:hover { color: var(--ink); }
+    .empty {
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      color: var(--muted);
+    }
+    .edit-input { width: 100%; }
+    .actions { display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 180px; }
+    .act { grid-template-columns: auto minmax(0, 1fr) minmax(110px, 180px) auto; align-items: center; }
+    .act input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--ink); }
+    .act.done .txt { text-decoration: line-through; color: var(--muted); }
+    .owner { width: 100%; font-size: 15px; padding: 7px 8px; }
+    .flash { box-shadow: inset 0 0 0 2px var(--island); }
+
+    .guide summary, .backup summary { cursor: pointer; font-weight: 600; }
+    .guide ol { margin: 10px 0 0; padding-left: 1.2rem; }
+    .guide li + li, .backup p { margin-top: 6px; }
+    .backup p { margin: 10px 0; color: var(--muted); }
+    .backup-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .file-btn input { display: none; }
+    .footer-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+    .noscript {
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    @media (max-width: 800px) {
+      .lanes { grid-template-columns: minmax(0, 1fr); }
+      .steps li:not(:last-child)::after { width: 16px; margin: 0 6px; }
+    }
+    @media (max-width: 560px) {
+      .act { grid-template-columns: auto minmax(0, 1fr) auto; }
+      .act .owner { grid-column: 2 / 3; }
+      .top { flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .btn, .person, .stepper button { transition: background-color 120ms ease, color 120ms ease; }
+    }
+    @media print {
+      body { background: white; padding: 0; }
+      .skip, .ghost, .add, .act-add, .tools, .toolbar, .footer-tools, .backup, .guide, .rule, .jump { display: none !important; }
+      .scene, .lane, .actions, .card, .act { break-inside: avoid; }
+      .sprint { border: 0; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#lanes">Aller aux blocs</a>
+  <main class="wrap">
+    <header class="head">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Rétrospective de sprint</div>
+          <h1>
+            <input id="sprint" class="sprint" type="text" maxlength="80" placeholder="Nom du sprint" aria-label="Nom du sprint" autocomplete="off">
+          </h1>
+          <p class="date" id="date"></p>
+          <p class="jump"><a href="traitre-du-sprint.html">Avant la revue : le traître du sprint</a></p>
+        </div>
+        <button type="button" class="ghost" id="theme-btn" aria-pressed="false">Thème sombre</button>
+      </div>
+      <ol class="steps">
+        <li><span>1</span> Écrire</li>
+        <li><span>2</span> Voter</li>
+        <li><span>3</span> Agir</li>
+      </ol>
+    </header>
+
+    <p class="rule">
+      <strong>Cinq personnes, deux votes par bloc.</strong>
+      Chacune pose 2 votes dans le vent, 2 dans les ancres, 2 dans les rochers et 2 dans l'île.
+      Les deux votes peuvent aller sur la même carte, ou sur deux cartes différentes.
+      Chacun ouvre cette page, choisit son nom et vote. Les cinq voient les mêmes cartes.
+    </p>
+
+    <div class="scene" aria-hidden="true">
+      <svg viewBox="0 0 1000 270" xmlns="http://www.w3.org/2000/svg" role="img">
+        <defs>
+          <linearGradient id="rv-sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--sky1)"/>
+            <stop offset="100%" stop-color="var(--sky2)"/>
+          </linearGradient>
+          <linearGradient id="rv-sea" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--sea)"/>
+            <stop offset="100%" stop-color="var(--wave)"/>
+          </linearGradient>
+        </defs>
+        <rect width="1000" height="270" fill="url(#rv-sky)"/>
+        <circle cx="590" cy="48" r="15" fill="var(--sun)"/>
+        <circle cx="590" cy="48" r="24" fill="none" stroke="var(--sun)" stroke-width="2" opacity="0.7"/>
+        <g fill="none" stroke="var(--wind)" stroke-width="3" stroke-linecap="round">
+          <path d="M28 78 q46 -18 92 0 t70 0"/>
+          <path d="M52 106 q40 -16 80 0 t50 0"/>
+          <path d="M28 132 q34 -12 68 0 t46 0"/>
+        </g>
+        <path d="M250 74 q7 -7 14 0" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M272 66 q6 -6 12 0" fill="none" stroke="var(--muted)" stroke-width="1.6" stroke-linecap="round"/>
+        <text x="28" y="42" fill="var(--wind)" stroke="var(--sky1)" stroke-width="5" paint-order="stroke" stroke-linejoin="round" font-size="15" letter-spacing="2">VENT</text>
+
+        <rect y="168" width="1000" height="102" fill="url(#rv-sea)"/>
+        <g id="rv-waves">
+          <path fill="var(--wave)" d="M-80 168 q40 -12 80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 V320 H-80 Z"/>
+          <path fill="none" stroke="var(--wave-line)" stroke-width="2" d="M-80 188 q40 -7 80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0 t80 0"/>
+        </g>
+
+        <path d="M530 162 C 640 148, 760 176, 870 166" fill="none" stroke="var(--island)" stroke-width="2" stroke-dasharray="5 6" stroke-linecap="round"/>
+
+        <path d="M318 168 L492 168 L528 156 L500 198 Q430 216 346 198 Z" fill="var(--ink)"/>
+        <path d="M336 168 H500" stroke="var(--sand)" stroke-width="2"/>
+        <line x1="430" y1="56" x2="430" y2="168" stroke="var(--ink)" stroke-width="3"/>
+        <path d="M424 72 C 356 104, 346 146, 392 162 L 424 162 Z" fill="var(--sail)" stroke="#173044" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M436 64 C 506 98, 522 146, 472 162 L 436 162 Z" fill="var(--sail)" stroke="#173044" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M430 56 L430 44 L450 51 Z" fill="var(--rocks)"/>
+
+        <path d="M424 198 V214" fill="none" stroke="var(--anchor)" stroke-width="2" stroke-dasharray="3 3"/>
+        <g fill="none" stroke="var(--anchor)" stroke-width="2.6" stroke-linecap="round">
+          <circle cx="424" cy="220" r="4.5"/>
+          <path d="M424 224 V246"/>
+          <path d="M412 232 H436"/>
+          <path d="M424 246 C424 260 406 260 400 248"/>
+          <path d="M424 246 C424 260 442 260 448 248"/>
+        </g>
+        <text x="460" y="252" fill="var(--anchor)" stroke="var(--sea)" stroke-width="5" paint-order="stroke" stroke-linejoin="round" font-size="15" letter-spacing="2">ANCRE</text>
+
+        <path d="M648 176 L678 128 L706 176 Z" fill="var(--rocks)"/>
+        <path d="M690 176 L734 112 L776 176 Z" fill="var(--rocks)"/>
+        <path d="M760 176 L788 142 L822 176 Z" fill="var(--rocks)"/>
+        <text x="648" y="100" fill="var(--rocks)" stroke="var(--sky2)" stroke-width="5" paint-order="stroke" stroke-linejoin="round" font-size="15" letter-spacing="2">ROCHERS</text>
+
+        <path d="M800 176 C 850 96, 980 104, 1040 176 Z" fill="var(--island)"/>
+        <path d="M834 176 C 878 146, 980 148, 1024 176 Z" fill="var(--sand)"/>
+        <line x1="930" y1="158" x2="938" y2="112" stroke="#143820" stroke-width="3" stroke-linecap="round"/>
+        <g fill="none" stroke="#143820" stroke-width="3" stroke-linecap="round">
+          <path d="M938 116 q-30 2 -40 16"/>
+          <path d="M938 116 q-18 -18 -42 -8"/>
+          <path d="M938 116 q26 -16 42 -2"/>
+          <path d="M938 116 q16 8 34 18"/>
+        </g>
+        <text x="868" y="86" fill="var(--island)" stroke="var(--sky2)" stroke-width="5" paint-order="stroke" stroke-linejoin="round" font-size="15" letter-spacing="2">ÎLE</text>
+      </svg>
+    </div>
+
+    <div class="toolbar">
+      <div class="who-line">
+        <div class="who-row" id="who" role="radiogroup" aria-label="Qui vote"></div>
+        <label class="name-edit">Nom affiché
+          <input id="person-name" type="text" maxlength="40" autocomplete="off" aria-describedby="turn">
+        </label>
+      </div>
+      <div class="budget-line">
+        <span>Votes posés</span>
+        <div class="budget" id="budget"></div>
+      </div>
+      <p class="turn" id="turn"></p>
+      <p class="status" id="status" role="status"></p>
+    </div>
+
+    <section class="lanes" id="lanes" aria-label="Blocs de la rétrospective"></section>
+
+    <section class="actions" aria-labelledby="act-h">
+      <div class="act-head">
+        <h2 id="act-h">Actions pour le prochain sprint</h2>
+      </div>
+      <p class="sub">Partez des cartes en tête, ou écrivez une action ici. Donnez-lui un responsable.</p>
+      <form class="act-add" id="act-form">
+        <input id="act-what" class="what" type="text" maxlength="200" placeholder="Qu'est-ce qu'on change ?" aria-label="Action" autocomplete="off">
+        <input id="act-who" class="owner-field" type="text" maxlength="40" placeholder="Responsable" aria-label="Responsable" list="owners" autocomplete="off">
+        <button class="btn" type="submit" id="act-submit">Ajouter l'action</button>
+      </form>
+      <datalist id="owners"></datalist>
+      <ul class="acts" id="acts"></ul>
+    </section>
+
+    <details class="guide">
+      <summary>Comment animer, en quatre temps</summary>
+      <ol>
+        <li>Cinq minutes de silence : chacun ajoute ses cartes dans les quatre blocs.</li>
+        <li>On lit les cartes à voix haute et on supprime les doublons.</li>
+        <li>Chaque personne ouvre la page, choisit son nom, et pose 2 votes par bloc. Un nom différent par personne.</li>
+        <li>On discute des cartes en tête, puis on écrit les actions avec un responsable.</li>
+      </ol>
+    </details>
+
+    <div class="footer-tools">
+      <button type="button" class="ghost" id="copy-md">Copier le compte-rendu</button>
+      <button type="button" class="ghost" id="download-md">Télécharger</button>
+      <button type="button" class="ghost" id="reset">Effacer le tableau</button>
+    </div>
+
+    <details class="backup">
+      <summary>Sauvegarde du tableau</summary>
+      <p>Le tableau est partagé en ligne. Téléchargez une sauvegarde pour en garder une copie, ou pour le restaurer. Cette copie ne contient pas la partie de traître, et la restauration ne l'efface pas.</p>
+      <div class="backup-row">
+        <button type="button" class="ghost" id="save-json">Télécharger la sauvegarde</button>
+        <label class="file-btn">Restaurer
+          <input id="restore-file" type="file" accept="application/json,.json">
+        </label>
+      </div>
+    </details>
+  </main>
+  <noscript><p class="noscript wrap">Cette page a besoin de JavaScript pour ajouter des cartes et voter.</p></noscript>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
+
+  <script>
+  (function () {
+    /* Cinq personnes. Chacune a 2 votes dans chaque bloc. */
+    var LANES = [
+      { id: "wind", name: "Vent", hint: "Ce qui nous a fait avancer", ph: "Une chose qui a bien marché", empty: "Pas encore de vent. Ajoutez ce qui a aidé l'équipe à avancer." },
+      { id: "anchor", name: "Ancres", hint: "Ce qui nous a ralentis", ph: "Une chose qui nous a freinés", empty: "Pas encore d'ancre. Ajoutez ce qui a pesé sur le sprint." },
+      { id: "rocks", name: "Rochers", hint: "Les risques devant nous", ph: "Un risque que l'on voit venir", empty: "Aucun rocher signalé. Ajoutez les risques avant qu'ils n'accrochent la coque." },
+      { id: "island", name: "Île", hint: "Le cap du prochain sprint", ph: "Un objectif pour la suite", empty: "Aucune île en vue. Ajoutez ce vers quoi l'équipe veut naviguer." }
+    ];
+    var VOTES_PER_LANE = 2;
+    var PEOPLE = ["p1", "p2", "p3", "p4", "p5"];
+    var LOCAL_KEY = "retro-voile-fr-local";
+    var firebaseConfig = {
+      apiKey: "AIzaSyA4XCzpsTOur1Hseqi9VS7bGEKPbMSeUKY",
+      authDomain: "test-cbc24.firebaseapp.com",
+      databaseURL: "https://test-cbc24-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "test-cbc24",
+      storageBucket: "test-cbc24.firebasestorage.app",
+      messagingSenderId: "824671676051",
+      appId: "1:824671676051:web:97b3d36acf7a47bcb64f66"
+    };
+
+    var state = emptyState();
+    var editLock = false;
+    var boardReady = false;
+    var inputs = {};
+    var lists = {};
+    var db = null;
+
+    var $ = function (id) { return document.getElementById(id); };
+
+    function emptyState() {
+      return {
+        version: 1,
+        sprint: "",
+        theme: null,
+        activeId: "p1",
+        people: PEOPLE.map(function (id, i) { return { id: id, name: "Personne " + (i + 1) }; }),
+        cards: [],
+        actions: []
+      };
+    }
+
+    function uid() {
+      return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    }
+
+    function laneById(id) {
+      for (var i = 0; i < LANES.length; i++) if (LANES[i].id === id) return LANES[i];
+      return null;
+    }
+
+    function activePerson() {
+      for (var i = 0; i < state.people.length; i++) {
+        if (state.people[i].id === state.activeId) return state.people[i];
+      }
+      return state.people[0];
+    }
+
+    function personLabel(p) {
+      var name = p && p.name ? String(p.name).trim() : "";
+      if (name) return name;
+      var n = p && p.id ? p.id.slice(1) : "1";
+      return "Personne " + n;
+    }
+
+    function votesWord(n) {
+      return n + " vote" + (n === 1 ? "" : "s");
+    }
+
+    function totalVotes(card) {
+      var n = 0;
+      var votes = card.votes || {};
+      PEOPLE.forEach(function (id) { n += votes[id] || 0; });
+      return n;
+    }
+
+    function usedInLane(personId, lane) {
+      var n = 0;
+      state.cards.forEach(function (card) {
+        if (card.lane === lane) n += (card.votes && card.votes[personId]) || 0;
+      });
+      return n;
+    }
+
+    function teamVotes(lane) {
+      var n = 0;
+      state.cards.forEach(function (card) {
+        if (card.lane === lane) n += totalVotes(card);
+      });
+      return n;
+    }
+
+    function cardsIn(lane) {
+      return state.cards.filter(function (card) { return card.lane === lane; }).sort(function (a, b) {
+        return totalVotes(b) - totalVotes(a) || a.t - b.t;
+      });
+    }
+
+    function sortedActions() {
+      return state.actions.slice().sort(function (a, b) {
+        return (a.done ? 1 : 0) - (b.done ? 1 : 0) || a.t - b.t;
+      });
+    }
+
+    function el(tag, cls, text) {
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text != null) node.textContent = text;
+      return node;
+    }
+
+    function setStatus(message) {
+      $("status").textContent = message;
+    }
+
+    function saveLocal() {
+      try {
+        localStorage.setItem(LOCAL_KEY, JSON.stringify({ activeId: state.activeId, theme: state.theme }));
+      } catch (e) {}
+    }
+
+    function loadLocal() {
+      try {
+        var raw = localStorage.getItem(LOCAL_KEY);
+        if (!raw) return;
+        var data = JSON.parse(raw);
+        if (data && PEOPLE.indexOf(data.activeId) >= 0) state.activeId = data.activeId;
+        if (data && (data.theme === "light" || data.theme === "dark")) state.theme = data.theme;
+      } catch (e) {}
+    }
+
+    function ensureReady() {
+      if (boardReady && db) return true;
+      setStatus("Connexion au tableau partagé…");
+      return false;
+    }
+
+    function warnWrite(err) {
+      var code = err && (err.code || "");
+      if (code === "PERMISSION_DENIED") setStatus("Accès refusé. Publie les règles Firebase, puis recharge la page.");
+      else setStatus("Modification non enregistrée. Réessaie.");
+    }
+
+    function parseCards(raw) {
+      var cards = [];
+      if (!raw || typeof raw !== "object") return cards;
+      Object.keys(raw).forEach(function (id) {
+        var card = raw[id];
+        if (!card || !laneById(card.lane) || typeof card.text !== "string" || !card.text.trim()) return;
+        var votes = {};
+        if (card.votes && typeof card.votes === "object") {
+          PEOPLE.forEach(function (pid) {
+            if (typeof card.votes[pid] === "number") votes[pid] = card.votes[pid];
+          });
+        }
+        cards.push({
+          id: id,
+          lane: card.lane,
+          text: card.text.trim().slice(0, 240),
+          t: Number(card.t) || 0,
+          votes: votes
+        });
+      });
+      return cards;
+    }
+
+    function parseActions(raw) {
+      var actions = [];
+      if (!raw || typeof raw !== "object") return actions;
+      Object.keys(raw).forEach(function (id) {
+        var action = raw[id];
+        if (!action || typeof action.text !== "string" || !action.text.trim()) return;
+        actions.push({
+          id: id,
+          text: action.text.trim().slice(0, 200),
+          owner: String(action.owner || "").trim().slice(0, 40),
+          done: !!action.done,
+          t: Number(action.t) || 0
+        });
+      });
+      return actions;
+    }
+
+    function cardsToMap(cards) {
+      var out = {};
+      cards.forEach(function (card) {
+        out[card.id] = { lane: card.lane, text: card.text, t: card.t, votes: card.votes || {} };
+      });
+      return out;
+    }
+
+    function applyRemote(data) {
+      data = data || {};
+      var sprintField = $("sprint");
+      var nameField = $("person-name");
+      if (document.activeElement !== sprintField) state.sprint = typeof data.sprint === "string" ? data.sprint.slice(0, 80) : "";
+      if (data.people && typeof data.people === "object") {
+        state.people.forEach(function (person) {
+          if (document.activeElement === nameField && person.id === state.activeId) return;
+          var remote = data.people[person.id];
+          if (remote && typeof remote.name === "string" && remote.name.trim()) person.name = remote.name.trim().slice(0, 40);
+        });
+      }
+      state.cards = parseCards(data.cards);
+      clampVotes(state.cards);
+      state.actions = parseActions(data.actions);
+      if (document.activeElement !== sprintField && sprintField) sprintField.value = state.sprint;
+      applyTheme();
+      renderBudget();
+      if (!editLock) renderCards();
+      var ownerFocused = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("owner");
+      if (!ownerFocused) renderActions();
+    }
+
+    function publishBoard() {
+      var people = {};
+      state.people.forEach(function (person) { people[person.id] = { name: person.name }; });
+      var actions = {};
+      state.actions.forEach(function (action) {
+        actions[action.id] = { text: action.text, owner: action.owner || "", done: !!action.done, t: action.t };
+      });
+      var cards = cardsToMap(state.cards);
+      return db.ref("board").update({
+        sprint: state.sprint || "",
+        people: people,
+        cards: Object.keys(cards).length ? cards : null,
+        actions: Object.keys(actions).length ? actions : null
+      });
+    }
+
+    function clampVotes(cards) {
+      PEOPLE.forEach(function (pid) {
+        LANES.forEach(function (lane) {
+          var used = 0;
+          cards.filter(function (card) { return card.lane === lane.id; }).sort(function (a, b) {
+            return a.t - b.t;
+          }).forEach(function (card) {
+            var n = card.votes[pid] || 0;
+            if (typeof n !== "number" || n < 1) n = 0;
+            n = Math.min(VOTES_PER_LANE, Math.floor(n));
+            if (used + n > VOTES_PER_LANE) n = VOTES_PER_LANE - used;
+            used += n;
+            if (n) card.votes[pid] = n;
+            else delete card.votes[pid];
+          });
+        });
+      });
+    }
+
+    function sanitize(data) {
+      if (!data || typeof data !== "object") throw new Error("format");
+      var next = emptyState();
+      next.sprint = String(data.sprint || "").slice(0, 80);
+      next.theme = data.theme === "light" || data.theme === "dark" ? data.theme : null;
+      next.activeId = PEOPLE.indexOf(data.activeId) >= 0 ? data.activeId : "p1";
+      if (Array.isArray(data.people)) {
+        data.people.forEach(function (person) {
+          if (!person || PEOPLE.indexOf(person.id) < 0) return;
+          var found = next.people.filter(function (item) { return item.id === person.id; })[0];
+          if (found && typeof person.name === "string") found.name = person.name.trim().slice(0, 40) || found.name;
+        });
+      }
+      var seen = {};
+      next.cards = [];
+      if (Array.isArray(data.cards)) {
+        data.cards.forEach(function (card) {
+          if (!card || !laneById(card.lane) || typeof card.text !== "string" || !card.text.trim()) return;
+          var id = String(card.id || "");
+          if (!id || seen[id]) id = uid();
+          seen[id] = true;
+          var votes = {};
+          if (card.votes && typeof card.votes === "object") {
+            PEOPLE.forEach(function (pid) {
+              if (typeof card.votes[pid] === "number") votes[pid] = card.votes[pid];
+            });
+          }
+          next.cards.push({
+            id: id,
+            lane: card.lane,
+            text: card.text.trim().slice(0, 240),
+            t: Number(card.t) || Date.now(),
+            votes: votes
+          });
+        });
+      }
+      clampVotes(next.cards);
+      var seenAct = {};
+      next.actions = [];
+      if (Array.isArray(data.actions)) {
+        data.actions.forEach(function (action) {
+          if (!action || typeof action.text !== "string" || !action.text.trim()) return;
+          var id = String(action.id || "");
+          if (!id || seenAct[id]) id = uid();
+          seenAct[id] = true;
+          next.actions.push({
+            id: id,
+            text: action.text.trim().slice(0, 200),
+            owner: String(action.owner || "").trim().slice(0, 40),
+            done: !!action.done,
+            t: Number(action.t) || Date.now()
+          });
+        });
+      }
+      return next;
+    }
+
+    function sameText(a, b) {
+      return a.trim().toLocaleLowerCase("fr") === b.trim().toLocaleLowerCase("fr");
+    }
+
+    function prefersReducedMotion() {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    function scrollToNode(node) {
+      if (!node) return;
+      node.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    }
+
+    function applyTheme() {
+      var root = document.documentElement;
+      if (state.theme === "light" || state.theme === "dark") root.setAttribute("data-theme", state.theme);
+      else root.removeAttribute("data-theme");
+      var dark = state.theme === "dark" || (!state.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      var button = $("theme-btn");
+      button.textContent = dark ? "Thème clair" : "Thème sombre";
+      button.setAttribute("aria-pressed", dark ? "true" : "false");
+    }
+
+    function paintOwners() {
+      var list = $("owners");
+      list.textContent = "";
+      state.people.forEach(function (person) {
+        list.appendChild(new Option(personLabel(person)));
+      });
+    }
+
+    function paintPeople() {
+      var person = activePerson();
+      var remaining = LANES.some(function (lane) { return usedInLane(state.activeId, lane.id) < VOTES_PER_LANE; });
+      var nextId = null;
+      if (!remaining) {
+        var index = state.people.findIndex(function (item) { return item.id === state.activeId; });
+        var everyone = state.people.every(function (item) {
+          return LANES.every(function (lane) { return usedInLane(item.id, lane.id) >= VOTES_PER_LANE; });
+        });
+        if (!everyone) nextId = state.people[(index + 1) % state.people.length].id;
+      }
+      state.people.forEach(function (item, index) {
+        var button = document.querySelector('.person[data-id="' + item.id + '"]');
+        button.setAttribute("aria-checked", item.id === state.activeId ? "true" : "false");
+        button.classList.toggle("is-next", item.id === nextId);
+        button.querySelector(".who-name").textContent = personLabel(item);
+        button.setAttribute("aria-label", personLabel(item) + (item.id === state.activeId ? ", en train de voter" : ""));
+        button.querySelector(".avatar").textContent = String(index + 1);
+      });
+      var nameInput = $("person-name");
+      if (document.activeElement !== nameInput) nameInput.value = person.name;
+      nameInput.setAttribute("aria-label", "Nom affiché pour " + personLabel(person));
+      paintOwners();
+    }
+
+    function renderTurn() {
+      var person = activePerson();
+      var parts = LANES.map(function (lane) {
+        return { name: lane.name, left: VOTES_PER_LANE - usedInLane(person.id, lane.id) };
+      }).filter(function (item) { return item.left > 0; });
+      var turn = $("turn");
+      if (!parts.length) {
+        var index = state.people.findIndex(function (item) { return item.id === person.id; });
+        var everyone = state.people.every(function (item) {
+          return LANES.every(function (lane) { return usedInLane(item.id, lane.id) >= VOTES_PER_LANE; });
+        });
+        turn.textContent = everyone
+          ? "Tout le monde a voté. Discutez des cartes en tête, puis écrivez les actions."
+          : personLabel(person) + " a placé tous ses votes. Au tour de " + personLabel(state.people[(index + 1) % state.people.length]) + ".";
+        return;
+      }
+      if (parts.length === LANES.length && parts.every(function (item) { return item.left === VOTES_PER_LANE; })) {
+        turn.textContent = personLabel(person) + " · 2 votes dans chaque bloc.";
+        return;
+      }
+      turn.textContent = "Votes restants pour " + personLabel(person) + " : " + parts.map(function (item) {
+        return item.name + " (" + item.left + ")";
+      }).join(", ") + ".";
+    }
+
+    function renderBudget() {
+      var box = $("budget");
+      box.textContent = "";
+      LANES.forEach(function (lane) {
+        var used = usedInLane(state.activeId, lane.id);
+        var item = el("span", "bud");
+        item.style.setProperty("--c", "var(--" + lane.id + ")");
+        item.appendChild(el("span", "bud-name", lane.name));
+        var pips = el("span", "pips");
+        pips.setAttribute("aria-hidden", "true");
+        for (var i = 0; i < VOTES_PER_LANE; i++) pips.appendChild(el("span", i < used ? "pip used" : "pip"));
+        item.appendChild(pips);
+        box.appendChild(item);
+        var meta = $("meta-" + lane.id);
+        var left = VOTES_PER_LANE - used;
+        var you = left === 0 ? "Vos 2 votes sont placés" : "Il vous reste " + votesWord(left);
+        meta.textContent = you + " · équipe " + teamVotes(lane.id) + "/10";
+      });
+      renderTurn();
+      paintPeople();
+    }
+
+    function captureFocus() {
+      var node = document.activeElement;
+      return node && node.getAttribute ? node.getAttribute("data-focus-key") : null;
+    }
+
+    function restoreFocus(key) {
+      if (!key || !window.CSS || !CSS.escape) return;
+      var node = document.querySelector('[data-focus-key="' + CSS.escape(key) + '"]');
+      if (node && !node.disabled) {
+        node.focus();
+        return;
+      }
+      if (key.indexOf("plus-") === 0) {
+        var minus = document.querySelector('[data-focus-key="' + CSS.escape("minus-" + key.slice(5)) + '"]');
+        if (minus && !minus.disabled) minus.focus();
+      }
+    }
+
+    function renderCards() {
+      editLock = false;
+      var focus = captureFocus();
+      LANES.forEach(function (lane) {
+        var list = lists[lane.id];
+        list.textContent = "";
+        var items = cardsIn(lane.id);
+        var top = items.length ? totalVotes(items[0]) : 0;
+        var hasTrailer = items.some(function (item) { return totalVotes(item) < top; });
+        if (!items.length) {
+          list.appendChild(el("li", "empty", lane.empty));
+          return;
+        }
+        items.forEach(function (card) {
+          var mine = (card.votes && card.votes[state.activeId]) || 0;
+          var total = totalVotes(card);
+          var used = usedInLane(state.activeId, lane.id);
+          var li = el("li", mine ? "card has-mine" : "card");
+          li.style.setProperty("--c", "var(--" + lane.id + ")");
+          li.dataset.cardId = card.id;
+          var body = el("div", "txt-wrap");
+          if (top > 0 && total === top && (hasTrailer || items.length === 1)) body.appendChild(el("div", "kicker", "En tête"));
+          body.appendChild(el("div", "txt", card.text));
+          if (mine === 1) body.appendChild(el("p", "mine", "Votre vote est ici"));
+          if (mine === 2) body.appendChild(el("p", "mine", "Vos 2 votes sont ici"));
+          li.appendChild(body);
+
+          var stepper = el("div", "stepper");
+          stepper.setAttribute("role", "group");
+          stepper.setAttribute("aria-label", votesWord(total) + " au total");
+          var minus = el("button", null, "−");
+          minus.type = "button";
+          minus.disabled = mine <= 0;
+          minus.dataset.focusKey = "minus-" + card.id;
+          minus.setAttribute("aria-label", "Retirer un de vos votes. Vous en avez " + mine + ".");
+          minus.addEventListener("click", function () { removeVote(card.id); });
+          var count = el("span", "count", String(total));
+          count.setAttribute("aria-hidden", "true");
+          var plus = el("button", null, "+");
+          plus.type = "button";
+          plus.disabled = mine >= VOTES_PER_LANE || used >= VOTES_PER_LANE;
+          plus.dataset.focusKey = "plus-" + card.id;
+          plus.setAttribute("aria-label", "Ajouter un vote. " + votesWord(total) + " au total. Vous en avez " + mine + ".");
+          plus.addEventListener("click", function () { addVote(card.id); });
+          stepper.appendChild(minus);
+          stepper.appendChild(count);
+          stepper.appendChild(plus);
+          li.appendChild(stepper);
+
+          var tools = el("div", "tools");
+          var toAct = el("button", "link", "En faire une action");
+          toAct.type = "button";
+          toAct.addEventListener("click", function () { makeAction(card); });
+          var edit = el("button", "link", "Modifier");
+          edit.type = "button";
+          edit.addEventListener("click", function () { startEdit(card, li); });
+          var del = el("button", "link", "Supprimer");
+          del.type = "button";
+          del.addEventListener("click", function () {
+            if (del.dataset.arm !== "1") {
+              del.dataset.arm = "1";
+              del.textContent = "Confirmer";
+              setTimeout(function () {
+                if (del.isConnected && del.dataset.arm === "1") {
+                  del.dataset.arm = "";
+                  del.textContent = "Supprimer";
+                }
+              }, 2500);
+              return;
+            }
+            state.cards = state.cards.filter(function (item) { return item.id !== card.id; });
+            renderCards();
+            renderBudget();
+            db.ref("board/cards/" + card.id).remove().catch(warnWrite);
+            setStatus("Carte supprimée.");
+          });
+          tools.appendChild(toAct);
+          tools.appendChild(edit);
+          tools.appendChild(del);
+          li.appendChild(tools);
+          list.appendChild(li);
+        });
+      });
+      restoreFocus(focus);
+    }
+
+    function renderActions() {
+      var focus = captureFocus();
+      var list = $("acts");
+      list.textContent = "";
+      var items = sortedActions();
+      if (!items.length) {
+        list.appendChild(el("li", "empty", "Aucune action pour l'instant. Partez des cartes les plus votées et décidez quoi changer."));
+        return;
+      }
+      items.forEach(function (action) {
+        var li = el("li", action.done ? "act done" : "act");
+        li.dataset.actId = action.id;
+        var box = el("input");
+        box.type = "checkbox";
+        box.checked = !!action.done;
+        box.dataset.focusKey = "done-" + action.id;
+        box.setAttribute("aria-label", "Marquer comme faite : " + action.text);
+        box.addEventListener("change", function () {
+          action.done = box.checked;
+          renderActions();
+          db.ref("board/actions/" + action.id).update({ done: !!action.done }).catch(warnWrite);
+          setStatus(action.done ? "Action marquée comme faite." : "Action rouverte.");
+        });
+        li.appendChild(box);
+        li.appendChild(el("div", "txt", action.text));
+        var owner = el("input", "owner");
+        owner.type = "text";
+        owner.maxLength = 40;
+        owner.placeholder = "Responsable";
+        owner.value = action.owner || "";
+        owner.setAttribute("list", "owners");
+        owner.dataset.focusKey = "owner-" + action.id;
+        owner.setAttribute("aria-label", "Responsable de : " + action.text);
+        owner.addEventListener("change", function () {
+          action.owner = owner.value.trim().slice(0, 40);
+          owner.value = action.owner;
+          db.ref("board/actions/" + action.id).update({ owner: action.owner }).catch(warnWrite);
+          setStatus(action.owner ? "Responsable enregistré." : "Responsable retiré.");
+        });
+        li.appendChild(owner);
+        var del = el("button", "link", "Supprimer");
+        del.type = "button";
+        del.addEventListener("click", function () {
+          if (del.dataset.arm !== "1") {
+            del.dataset.arm = "1";
+            del.textContent = "Confirmer";
+            setTimeout(function () {
+              if (del.isConnected && del.dataset.arm === "1") {
+                del.dataset.arm = "";
+                del.textContent = "Supprimer";
+              }
+            }, 2500);
+            return;
+          }
+          state.actions = state.actions.filter(function (item) { return item.id !== action.id; });
+          renderActions();
+          db.ref("board/actions/" + action.id).remove().catch(warnWrite);
+          setStatus("Action supprimée.");
+        });
+        li.appendChild(del);
+        list.appendChild(li);
+      });
+      restoreFocus(focus);
+    }
+
+    function renderAll() {
+      var sprint = $("sprint");
+      if (document.activeElement !== sprint) sprint.value = state.sprint;
+      applyTheme();
+      renderBudget();
+      renderCards();
+      renderActions();
+    }
+
+    function setActive(id) {
+      if (PEOPLE.indexOf(id) < 0 || state.activeId === id) return;
+      state.activeId = id;
+      saveLocal();
+      renderBudget();
+      renderCards();
+    }
+
+    function addCard(lane, text) {
+      var clean = text.trim().slice(0, 240);
+      if (!clean || !ensureReady()) return false;
+      var card = { id: uid(), lane: lane.id, text: clean, t: Date.now(), votes: {} };
+      db.ref("board/cards/" + card.id).set({ lane: card.lane, text: card.text, t: card.t, votes: {} }).catch(warnWrite);
+      setStatus("Carte ajoutée dans " + lane.name + ".");
+      return true;
+    }
+
+    function addVote(cardId) {
+      if (editLock || !ensureReady()) return;
+      var card = state.cards.filter(function (item) { return item.id === cardId; })[0];
+      if (!card) return;
+      var mine = card.votes[state.activeId] || 0;
+      var used = usedInLane(state.activeId, card.lane);
+      if (mine >= VOTES_PER_LANE || used >= VOTES_PER_LANE) {
+        setStatus("Plus de vote disponible dans ce bloc.");
+        return;
+      }
+      var personId = state.activeId;
+      card.votes[personId] = mine + 1;
+      renderCards();
+      renderBudget();
+      var left = VOTES_PER_LANE - usedInLane(personId, card.lane);
+      var lane = laneById(card.lane);
+      setStatus(personLabel(activePerson()) + " : vote ajouté dans " + lane.name + ". " + (left === 0 ? "Les 2 votes de ce bloc sont placés." : "Il en reste " + left + "."));
+      db.ref("board/cards/" + cardId + "/votes/" + personId).set(mine + 1).catch(warnWrite);
+    }
+
+    function removeVote(cardId) {
+      if (editLock || !ensureReady()) return;
+      var card = state.cards.filter(function (item) { return item.id === cardId; })[0];
+      if (!card) return;
+      var mine = card.votes[state.activeId] || 0;
+      if (mine <= 0) return;
+      var personId = state.activeId;
+      mine -= 1;
+      if (mine) card.votes[personId] = mine;
+      else delete card.votes[personId];
+      renderCards();
+      renderBudget();
+      setStatus("Vote retiré.");
+      var voteRef = db.ref("board/cards/" + cardId + "/votes/" + personId);
+      (mine ? voteRef.set(mine) : voteRef.remove()).catch(warnWrite);
+    }
+
+    function addAction(text, owner) {
+      var clean = text.trim().slice(0, 200);
+      if (!clean || !ensureReady()) return null;
+      var existing = state.actions.filter(function (action) { return sameText(action.text, clean); })[0];
+      if (existing) {
+        renderActions();
+        var node = document.querySelector('[data-act-id="' + (window.CSS && CSS.escape ? CSS.escape(existing.id) : existing.id) + '"]');
+        if (node) {
+          node.classList.add("flash");
+          scrollToNode(node);
+        }
+        setStatus("Cette action est déjà dans la liste.");
+        return existing;
+      }
+      var action = { id: uid(), text: clean, owner: owner.trim().slice(0, 40), done: false, t: Date.now() };
+      db.ref("board/actions/" + action.id).set({ text: action.text, owner: action.owner, done: false, t: action.t }).then(function () {
+        if (action.owner) return;
+        var field = document.querySelector('[data-focus-key="owner-' + (window.CSS && CSS.escape ? CSS.escape(action.id) : action.id) + '"]');
+        if (!field) return;
+        scrollToNode(field);
+        field.focus();
+      }).catch(warnWrite);
+      setStatus(action.owner ? "Action ajoutée." : "Action ajoutée. Pensez à nommer un responsable.");
+      return action;
+    }
+
+    function makeAction(card) {
+      var action = addAction(card.text, "");
+      if (!action) return;
+      var owner = document.querySelector('[data-focus-key="owner-' + (window.CSS && CSS.escape ? CSS.escape(action.id) : action.id) + '"]');
+      if (owner && !action.owner) {
+        scrollToNode(owner);
+        owner.focus();
+      }
+    }
+
+    function startEdit(card, li) {
+      editLock = true;
+      var text = li.querySelector(".txt");
+      var tools = li.querySelector(".tools");
+      var input = el("input", "edit-input");
+      input.type = "text";
+      input.maxLength = 240;
+      input.value = card.text;
+      input.setAttribute("aria-label", "Modifier la carte");
+      text.replaceWith(input);
+      li.querySelectorAll(".stepper button").forEach(function (button) { button.disabled = true; });
+      tools.textContent = "";
+      var save = el("button", "link", "Enregistrer");
+      var cancel = el("button", "link", "Annuler");
+      save.type = "button";
+      cancel.type = "button";
+      function commit() {
+        var value = input.value.trim().slice(0, 240);
+        if (!value) {
+          setStatus("La carte ne peut pas être vide.");
+          input.focus();
+          return;
+        }
+        card.text = value;
+        renderCards();
+        db.ref("board/cards/" + card.id).update({ text: value }).catch(warnWrite);
+        setStatus("Carte mise à jour.");
+      }
+      save.addEventListener("click", commit);
+      cancel.addEventListener("click", function () { renderCards(); });
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") { event.preventDefault(); commit(); }
+        if (event.key === "Escape") renderCards();
+      });
+      tools.appendChild(save);
+      tools.appendChild(cancel);
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+
+    function toMarkdown() {
+      var title = state.sprint.trim() || "Sprint";
+      var lines = ["# Rétrospective voilier — " + title, "", $("date").textContent, "", "Cinq personnes, deux votes par bloc.", ""];
+      LANES.forEach(function (lane) {
+        lines.push("## " + lane.name + " — " + lane.hint, "");
+        var items = cardsIn(lane.id);
+        if (!items.length) lines.push("_Aucune carte._");
+        items.forEach(function (card) {
+          lines.push("- " + card.text + " (" + votesWord(totalVotes(card)) + ")");
+        });
+        lines.push("");
+      });
+      lines.push("## Actions", "");
+      var actions = sortedActions();
+      if (!actions.length) lines.push("_Aucune action._");
+      actions.forEach(function (action) {
+        lines.push("- [" + (action.done ? "x" : " ") + "] " + action.text + (action.owner ? " — " + action.owner : ""));
+      });
+      lines.push("");
+      return lines.join("\n");
+    }
+
+    function fileStamp() {
+      return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    }
+
+    function slug(value) {
+      var text = String(value || "sprint").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      return text || "sprint";
+    }
+
+    function download(filename, text, type) {
+      var link = document.createElement("a");
+      link.href = URL.createObjectURL(new Blob([text], { type: type }));
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+    }
+
+    function buildPeople() {
+      var row = $("who");
+      state.people.forEach(function (person, index) {
+        var button = el("button", "person");
+        button.type = "button";
+        button.dataset.id = person.id;
+        button.setAttribute("role", "radio");
+        button.appendChild(el("span", "avatar", String(index + 1)));
+        button.appendChild(el("span", "who-name", personLabel(person)));
+        button.addEventListener("click", function () { setActive(person.id); });
+        row.appendChild(button);
+      });
+    }
+
+    function buildLanes() {
+      var root = $("lanes");
+      LANES.forEach(function (lane) {
+        var section = el("section", "lane");
+        section.dataset.lane = lane.id;
+        section.setAttribute("aria-labelledby", "h-" + lane.id);
+        var head = el("div", "lane-head");
+        var title = el("h2", null, lane.name);
+        title.id = "h-" + lane.id;
+        head.appendChild(title);
+        head.appendChild(el("span", "hint", lane.hint));
+        section.appendChild(head);
+        var meta = el("p", "lane-meta", "");
+        meta.id = "meta-" + lane.id;
+        section.appendChild(meta);
+        var form = el("form", "add");
+        var input = el("input");
+        input.type = "text";
+        input.maxLength = 240;
+        input.placeholder = lane.ph;
+        input.autocomplete = "off";
+        input.setAttribute("aria-label", "Ajouter une carte dans " + lane.name);
+        var button = el("button", "btn lane-btn", "Ajouter");
+        button.type = "submit";
+        form.appendChild(input);
+        form.appendChild(button);
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          var value = input.value;
+          if (!addCard(lane, value)) return;
+          input.value = "";
+          input.focus();
+        });
+        section.appendChild(form);
+        var list = el("ul", "cards");
+        section.appendChild(list);
+        inputs[lane.id] = input;
+        lists[lane.id] = list;
+        root.appendChild(section);
+      });
+    }
+
+    function formatDate() {
+      var label = new Intl.DateTimeFormat("fr-FR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Europe/Paris"
+      }).format(new Date());
+      $("date").textContent = label.charAt(0).toLocaleUpperCase("fr") + label.slice(1);
+    }
+
+    function startWaves() {
+      if (prefersReducedMotion()) return;
+      var group = document.getElementById("rv-waves");
+      if (!group) return;
+      var motion = document.createElementNS("http://www.w3.org/2000/svg", "animateTransform");
+      motion.setAttribute("attributeName", "transform");
+      motion.setAttribute("type", "translate");
+      motion.setAttribute("from", "0 0");
+      motion.setAttribute("to", "-80 0");
+      motion.setAttribute("dur", "8s");
+      motion.setAttribute("repeatCount", "indefinite");
+      group.appendChild(motion);
+    }
+
+    $("sprint").addEventListener("input", function () {
+      state.sprint = $("sprint").value.slice(0, 80);
+      if (!ensureReady()) return;
+      db.ref("board/sprint").set(state.sprint).catch(warnWrite);
+    });
+
+    function publishName() {
+      if (!ensureReady()) return;
+      db.ref("board/people/" + state.activeId + "/name").set(activePerson().name).catch(warnWrite);
+    }
+
+    $("person-name").addEventListener("input", function () {
+      activePerson().name = $("person-name").value.slice(0, 40);
+      var button = document.querySelector('.person[data-id="' + state.activeId + '"]');
+      button.querySelector(".who-name").textContent = personLabel(activePerson());
+      paintOwners();
+      renderTurn();
+      publishName();
+    });
+    $("person-name").addEventListener("blur", function () {
+      if (!activePerson().name.trim()) {
+        var index = PEOPLE.indexOf(state.activeId);
+        activePerson().name = "Personne " + (index + 1);
+        $("person-name").value = activePerson().name;
+        paintPeople();
+        renderTurn();
+      }
+      publishName();
+    });
+
+    $("theme-btn").addEventListener("click", function () {
+      var dark = state.theme === "dark" || (!state.theme && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      state.theme = dark ? "light" : "dark";
+      saveLocal();
+      applyTheme();
+    });
+
+    $("act-form").addEventListener("submit", function (event) {
+      event.preventDefault();
+      var text = $("act-what").value;
+      var owner = $("act-who").value;
+      if (!text.trim()) return;
+      $("act-what").value = "";
+      $("act-who").value = "";
+      addAction(text, owner);
+      $("act-what").focus();
+    });
+
+    $("copy-md").addEventListener("click", function () {
+      var markdown = toMarkdown();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(markdown).then(function () {
+          setStatus("Compte-rendu copié.");
+        }, function () {
+          download("retro-voile-" + fileStamp() + ".md", markdown, "text/markdown;charset=utf-8");
+          setStatus("Compte-rendu téléchargé.");
+        });
+        return;
+      }
+      download("retro-voile-" + fileStamp() + ".md", markdown, "text/markdown;charset=utf-8");
+      setStatus("Compte-rendu téléchargé.");
+    });
+
+    $("download-md").addEventListener("click", function () {
+      download("retro-voile-" + slug(state.sprint) + "-" + fileStamp() + ".md", toMarkdown(), "text/markdown;charset=utf-8");
+      setStatus("Compte-rendu téléchargé.");
+    });
+
+    $("save-json").addEventListener("click", function () {
+      download("retro-voile-" + slug(state.sprint) + "-" + fileStamp() + ".json", JSON.stringify(state, null, 2), "application/json");
+      setStatus("Sauvegarde téléchargée.");
+    });
+
+    $("restore-file").addEventListener("change", function () {
+      var file = $("restore-file").files && $("restore-file").files[0];
+      $("restore-file").value = "";
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        try {
+          if (!ensureReady()) return;
+          if (!window.confirm("Remplacer le tableau partagé par cette sauvegarde ?")) return;
+          var next = sanitize(JSON.parse(String(reader.result)));
+          var theme = state.theme;
+          var activeId = state.activeId;
+          state = next;
+          state.theme = theme;
+          state.activeId = PEOPLE.indexOf(activeId) >= 0 ? activeId : "p1";
+          saveLocal();
+          publishBoard().then(function () {
+            renderAll();
+            setStatus("Sauvegarde restaurée pour tout le monde.");
+          }).catch(warnWrite);
+        } catch (e) {
+          setStatus("Ce fichier n'est pas une sauvegarde utilisable.");
+        }
+      };
+      reader.readAsText(file);
+    });
+
+    $("reset").addEventListener("click", function () {
+      if (!ensureReady()) return;
+      if (!window.confirm("Effacer les cartes, les votes et les actions pour tout le monde ? Les noms des 5 personnes sont conservés.")) return;
+      state.cards = [];
+      state.actions = [];
+      state.sprint = "";
+      renderAll();
+      Promise.all([
+        db.ref("board/cards").remove(),
+        db.ref("board/actions").remove(),
+        db.ref("board/sprint").set("")
+      ]).then(function () {
+        setStatus("Tableau effacé. Les noms sont conservés.");
+      }).catch(warnWrite);
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.altKey || event.metaKey || event.ctrlKey) return;
+      var tag = (event.target.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || event.target.isContentEditable) return;
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      var index = state.people.findIndex(function (person) { return person.id === state.activeId; });
+      var next = event.key === "ArrowRight" ? (index + 1) % 5 : (index + 4) % 5;
+      event.preventDefault();
+      setActive(state.people[next].id);
+      var selected = document.querySelector('.person[data-id="' + state.people[next].id + '"]');
+      if (selected) selected.focus();
+    });
+
+    function connectBoard() {
+      if (!window.firebase) {
+        setStatus("Firebase n'a pas pu se charger. Recharge la page.");
+        return;
+      }
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      var listening = false;
+      firebase.auth().onAuthStateChanged(function (user) {
+        if (!user || listening) return;
+        listening = true;
+        db.ref("board").on("value", function (snap) {
+          boardReady = true;
+          try {
+            applyRemote(snap.val() || {});
+          } catch (err) {
+            console.error(err);
+            setStatus("Le tableau n'a pas pu s'afficher. Recharge la page.");
+          }
+          if (!$("status").dataset.live) {
+            $("status").dataset.live = "1";
+            setStatus("Tableau partagé. Chacun choisit son nom, les cartes sont les mêmes pour les cinq.");
+          }
+        }, function () {
+          boardReady = false;
+          setStatus("Accès refusé. Vérifie les règles Firebase, puis recharge la page.");
+        });
+      });
+      firebase.auth().signInAnonymously().catch(function (err) {
+        var code = err && err.code;
+        if (code === "auth/operation-not-allowed") setStatus("Dans Firebase, active la connexion Anonyme, puis recharge la page.");
+        else if (code === "auth/unauthorized-domain") setStatus("Ajoute le domaine Netlify dans Firebase : Authentication, Settings, Authorized domains.");
+        else setStatus("Connexion impossible. Réessaie dans un instant.");
+      });
+    }
+
+    formatDate();
+    buildPeople();
+    buildLanes();
+    loadLocal();
+    renderAll();
+    setStatus("Connexion au tableau partagé…");
+    connectBoard();
+    startWaves();
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () {
+      if (!state.theme) applyTheme();
+    });
+  })();
+  </script>
+</body>
+</html>
