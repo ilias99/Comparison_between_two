@@ -268,7 +268,7 @@
 
   <section aria-labelledby="h-word">
     <h2 id="h-word">2. Découvre ton mot</h2>
-    <p class="hint">Touche ton prénom, puis la carte pour voir ton mot. Il ne s'affiche qu'une seule fois par manche. Ne regarde pas celui des autres.</p>
+    <p class="hint">Touche ton prénom, puis la carte pour voir ton mot. Il ne s'affiche qu'une seule fois par manche, y compris sur un autre appareil qui a le même code. Ne regarde pas celui des autres.</p>
     <div class="players" id="players"></div>
   </section>
 
@@ -299,6 +299,9 @@
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.10.0/firebase-database-compat.js"></script>
 <script>
 (function () {
   var PLAYERS = ["Alex the best", "Alexandre", "Yani", "Veronique", "Elyase"];
@@ -310,6 +313,19 @@
     ["Batch", "Flux continu"]
   ];
   var WORDS = ["tigre", "comete", "pixel", "delta", "nuage", "kanban", "fusee", "bambou", "zebre", "ardoise"];
+  var firebaseConfig = {
+    apiKey: "AIzaSyA4XCzpsTOur1Hseqi9VS7bGEKPbMSeUKY",
+    authDomain: "test-cbc24.firebaseapp.com",
+    databaseURL: "https://test-cbc24-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "test-cbc24",
+    storageBucket: "test-cbc24.firebasestorage.app",
+    messagingSenderId: "824671676051",
+    appId: "1:824671676051:web:97b3d36acf7a47bcb64f66"
+  };
+  var db = null;
+  var authed = false;
+  var vuOff = null;
+  var pendingSeen = [];
 
   var $ = function (id) { return document.getElementById(id); };
   var state = { code: "", round: 1, seen: {}, end: null, shown: false, open: -1, timer: null, used: false };
@@ -518,6 +534,7 @@
     state.end = null;
     closeSheet(true);
     renderAll();
+    listenVu();
   }
 
   function renderAll() { renderPlayers(); renderOrder(); renderEnd(); }
@@ -531,6 +548,59 @@
   function markSeen(i) {
     state.seen[i] = true;
     try { localStorage.setItem(key(i), "1"); } catch (e) { /* ignoré */ }
+    pushSeen(state.code, state.round, i);
+  }
+  function codeKey(code) {
+    return String(code).replace(/[.#$[\]/]/g, function (ch) {
+      return "%" + ch.charCodeAt(0).toString(16);
+    });
+  }
+  function pushSeen(code, round, i) {
+    if (!code) return;
+    if (!db || !authed) { pendingSeen.push({ code: code, round: round, i: i }); return; }
+    db.ref("board/vu/" + codeKey(code) + "/" + round + "/" + i).set(true).catch(function () {});
+  }
+  function publishLocalSeen() {
+    if (!state.code) return;
+    for (var i = 0; i < PLAYERS.length; i++) if (isSeen(i)) pushSeen(state.code, state.round, i);
+  }
+  function applyRemoteSeen(val) {
+    val = val || {};
+    var changed = false;
+    for (var i = 0; i < PLAYERS.length; i++) {
+      if (!val[i] && !val[String(i)]) continue;
+      if (state.seen[i]) continue;
+      state.seen[i] = true;
+      try { localStorage.setItem(key(i), "1"); } catch (e) {}
+      changed = true;
+    }
+    if (!changed) return;
+    renderPlayers();
+    if (state.open >= 0 && isSeen(state.open) && !state.shown) {
+      state.used = true;
+      paintCard();
+    }
+  }
+  function listenVu() {
+    if (vuOff) { vuOff(); vuOff = null; }
+    if (!db || !authed || !state.code) return;
+    var ref = db.ref("board/vu/" + codeKey(state.code) + "/" + state.round);
+    var onValue = function (snap) { applyRemoteSeen(snap.val()); };
+    ref.on("value", onValue);
+    vuOff = function () { ref.off("value", onValue); };
+    publishLocalSeen();
+  }
+  function connectVu() {
+    if (!window.firebase || db) return;
+    try { firebase.initializeApp(firebaseConfig); } catch (e) { return; }
+    db = firebase.database();
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (!user || authed) return;
+      authed = true;
+      pendingSeen.splice(0).forEach(function (item) { pushSeen(item.code, item.round, item.i); });
+      listenVu();
+    });
+    firebase.auth().signInAnonymously().catch(function () {});
   }
   function paintCard() {
     var c = current();
@@ -632,6 +702,7 @@
   });
 
   renderAll();
+  connectVu();
 })();
 </script>
 
